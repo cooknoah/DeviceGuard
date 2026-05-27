@@ -1,0 +1,9 @@
+{
+  "launch_at_startup": true,
+  "notify_on_connect": true,
+  "notify_on_disconnect": true,
+  "auto_scan_usb": true,
+  "yara_scan_depth": 2,
+  "custom_rules_dir": "rules/custom",
+  "defender_scan_enabled": true
+}
