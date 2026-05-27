@@ -1,9 +1,35 @@
 import threading
-import time
 from typing import Callable
 
 import pythoncom
 import wmi as wmi_module
+
+
+def get_connected_devices(class_filter: str | None = None) -> list[dict]:
+    """Query WMI for all currently connected PnP devices.
+    Optionally filter by PNPClass (e.g. 'USB', 'HIDClass', 'XboxComposite').
+    Must be called from a COM-initialized thread (or the main thread)."""
+    pythoncom.CoInitialize()
+    try:
+        c = wmi_module.WMI()
+        devices = []
+        for dev in c.Win32_PnPEntity():
+            pnp_class = dev.PNPClass or ""
+            if class_filter and pnp_class.lower() != class_filter.lower():
+                continue
+            devices.append({
+                "name": dev.Name,
+                "device_id": dev.DeviceID,
+                "pnp_class": pnp_class,
+                "manufacturer": dev.Manufacturer,
+                "status": dev.Status,
+            })
+        return devices
+    except Exception as exc:
+        print(f"[DeviceMonitor] get_connected_devices error: {exc}")
+        return []
+    finally:
+        pythoncom.CoUninitialize()
 
 
 class DeviceMonitor:

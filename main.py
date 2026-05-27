@@ -1,8 +1,10 @@
 """DeviceGuard — entry point.
 
-Loads config, starts the device monitor, tray icon, and toast notifications.
+Loads config, starts the device monitor, tray icon, toast notifications,
+and PyQt6 main window.
 """
 
+import sys
 import time
 import threading
 
@@ -12,13 +14,9 @@ from core.monitor import DeviceMonitor
 from core.notifier import notify_connect, notify_disconnect
 from core.tray import TrayManager
 from core.startup import sync_startup
+from ui.app import create_app
 
-_shutdown = threading.Event()
-
-# Debounce: 2s after the last event in a burst, fire the toast.
-# Cooldown: after a toast fires, suppress further toasts for 5s.
-# This handles composite devices (e.g. Xbox controller) where WMI delivers
-# sub-device events 3-4 seconds after the main device event.
+# ── Notification debounce + cooldown ──
 _DEBOUNCE_SECS = 0.8
 _COOLDOWN_SECS = 5.0
 
@@ -46,7 +44,6 @@ def _is_generic(name: str) -> bool:
 
 
 def _pick_best_name(devices: list[dict]) -> str:
-    """Choose the most descriptive device name from a batch of PnP events."""
     for d in devices:
         name = d.get("name") or ""
         if name and not _is_generic(name):
@@ -85,6 +82,10 @@ def _flush_disconnects(config: dict) -> None:
         _last_disconnect_toast = time.monotonic()
 
 
+# Reference to the main window, set in main()
+_window = None
+
+
 def on_connect(device_info: dict, config: dict) -> None:
     global _connect_timer
     name = device_info.get("name")
@@ -96,13 +97,13 @@ def on_connect(device_info: dict, config: dict) -> None:
         device_class=device_info.get("pnp_class"),
         manufacturer=device_info.get("manufacturer"),
     )
+    if _window:
+        _window.notify_device_event("connect", device_info)
     with _pending_lock:
         now = time.monotonic()
-        # Inside cooldown — silently absorb, no toast
         if now - _last_connect_toast < _COOLDOWN_SECS:
             return
         _pending_connects.append(device_info)
-        # Reset debounce timer on each event
         if _connect_timer is not None:
             _connect_timer.cancel()
         _connect_timer = threading.Timer(
@@ -123,6 +124,8 @@ def on_disconnect(device_info: dict, config: dict) -> None:
         device_class=device_info.get("pnp_class"),
         manufacturer=device_info.get("manufacturer"),
     )
+    if _window:
+        _window.notify_device_event("disconnect", device_info)
     with _pending_lock:
         now = time.monotonic()
         if now - _last_disconnect_toast < _COOLDOWN_SECS:
@@ -138,11 +141,15 @@ def on_disconnect(device_info: dict, config: dict) -> None:
 
 
 def main() -> None:
+    global _window
     config = load_config()
     print("DeviceGuard starting...")
 
-    # Sync startup registry with config
     sync_startup(config)
+
+    # Create Qt app and window
+    app, window = create_app()
+    _window = window
 
     # Device monitor
     monitor = DeviceMonitor()
@@ -154,15 +161,19 @@ def main() -> None:
 
     # System tray
     def handle_open():
-        print("[Tray] Open clicked (UI not yet available)")
+        window.show()
+        window.raise_()
+        window.activateWindow()
 
     def handle_settings():
-        print("[Tray] Settings clicked (UI not yet available)")
+        window.show()
+        window.raise_()
+        window.open_settings()
 
     def handle_exit():
         print("[Tray] Exit clicked")
         monitor.stop()
-        _shutdown.set()
+        app.quit()
 
     tray = TrayManager(
         on_open=handle_open,
@@ -171,16 +182,16 @@ def main() -> None:
     )
     tray.start()
 
-    print("DeviceGuard running in system tray. Right-click the tray icon to exit.")
+    # Show window on launch
+    window.show()
 
-    try:
-        _shutdown.wait()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        monitor.stop()
-        tray.stop()
-        print("DeviceGuard stopped.")
+    print("DeviceGuard running.")
+
+    exit_code = app.exec()
+    monitor.stop()
+    tray.stop()
+    print("DeviceGuard stopped.")
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
