@@ -1,5 +1,6 @@
 PyQt6>=6.6.0
 pystray>=0.19.4
+Pillow>=10.0.0
 winotify>=1.1.0
 pywin32>=306
 wmi>=1.5.1

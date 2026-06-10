@@ -1,15 +1,15 @@
 """System tray icon with right-click menu using pystray."""
 
 import threading
-from pathlib import Path
 from typing import Callable
 
 from PIL import Image
 import pystray
 
-_ASSETS = Path(__file__).parent.parent / "assets"
-_ICON_PATH = _ASSETS / "icon.ico"
-_ICON_ALERT_PATH = _ASSETS / "icon_alert.ico"
+from core.paths import resource_path
+
+_ICON_PATH = resource_path("assets", "icon.ico")
+_ICON_ALERT_PATH = resource_path("assets", "icon_alert.ico")
 
 
 class TrayManager:

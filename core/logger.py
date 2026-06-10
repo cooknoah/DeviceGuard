@@ -1,10 +1,10 @@
 import csv
 import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).parent.parent
-_DATA_DIR = _PROJECT_ROOT / "data"
+from core.paths import user_path
+
+_DATA_DIR = user_path("data")
 _DB_PATH = _DATA_DIR / "device_log.db"
 
 _SCHEMA = """\

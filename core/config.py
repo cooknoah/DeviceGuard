@@ -1,8 +1,8 @@
 import json
-from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).parent.parent
-_CONFIG_PATH = _PROJECT_ROOT / "config.json"
+from core.paths import user_path
+
+_CONFIG_PATH = user_path("config.json")
 
 _DEFAULTS = {
     "launch_at_startup": True,

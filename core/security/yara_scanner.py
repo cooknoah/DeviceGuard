@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 
+from core.paths import resource_path, user_path
 from core.security.types import ScanFinding, ScanResult, ScanStatus
 
 try:
@@ -16,8 +17,6 @@ except Exception as _exc:  # ImportError or runtime DLL load failure
     _YARA_AVAILABLE = False
     _YARA_IMPORT_ERROR = str(_exc)
 
-
-_PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 _compiled_rules = None
 _compile_lock = threading.Lock()
@@ -34,13 +33,22 @@ def import_error() -> str | None:
 
 def _collect_rule_files(rule_dirs: list[str]) -> list[Path]:
     files: list[Path] = []
+    seen_dirs: set[Path] = set()
     for d in rule_dirs:
         p = Path(d)
-        if not p.is_absolute():
-            p = _PROJECT_ROOT / p
-        if p.exists():
-            files.extend(sorted(p.glob("*.yar")))
-            files.extend(sorted(p.glob("*.yara")))
+        if p.is_absolute():
+            candidates = [p]
+        else:
+            # Relative dirs may exist in the user data dir (custom rules)
+            # and/or the bundle (default rules); in dev both are the same.
+            candidates = [user_path(d), resource_path(d)]
+        for c in candidates:
+            c = c.resolve()
+            if c in seen_dirs or not c.exists():
+                continue
+            seen_dirs.add(c)
+            files.extend(sorted(c.glob("*.yar")))
+            files.extend(sorted(c.glob("*.yara")))
     return files
 
 

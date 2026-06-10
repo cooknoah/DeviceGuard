@@ -1,6 +1,8 @@
 data/
 dist/
 build/
+config.json
+installer/output/
 __pycache__/
 *.spec
 *.pyc

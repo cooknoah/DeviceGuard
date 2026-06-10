@@ -1,11 +1,10 @@
 """Windows toast notifications via winotify."""
 
-from pathlib import Path
-
 from winotify import Notification, audio
 
-_ASSETS = Path(__file__).parent.parent / "assets"
-_ICON_PATH = str(_ASSETS.resolve() / "icon.ico")
+from core.paths import resource_path
+
+_ICON_PATH = str(resource_path("assets", "icon.ico").resolve())
 _APP_ID = "DeviceGuard"
 
 
