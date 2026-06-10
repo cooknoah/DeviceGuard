@@ -1,8 +1,9 @@
 """History view tab with event table, filters, and CSV export."""
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
-    QPushButton, QLabel, QFileDialog,
+    QPushButton, QLabel, QFileDialog, QLineEdit,
 )
 
 from core import logger
@@ -28,6 +29,20 @@ class HistoryView(QWidget):
         ])
         self._filter_combo.currentIndexChanged.connect(self._refresh)
         toolbar.addWidget(self._filter_combo)
+
+        self._search_box = QLineEdit()
+        self._search_box.setPlaceholderText("Search name, ID, manufacturer…")
+        self._search_box.setClearButtonEnabled(True)
+        self._search_box.setMaximumWidth(280)
+        # Debounce so filtering runs once per pause, not per keystroke.
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(250)
+        self._search_timer.timeout.connect(self._refresh)
+        self._search_box.textChanged.connect(
+            lambda _text: self._search_timer.start()
+        )
+        toolbar.addWidget(self._search_box)
 
         toolbar.addStretch()
 
@@ -59,6 +74,17 @@ class HistoryView(QWidget):
             events = [e for e in events if is_alert_result(e.get("scan_result"))]
         else:
             events = logger.get_events(limit=500, event_type_filter=self._get_filter())
+        query = self._search_box.text().strip().lower()
+        if query:
+            events = [
+                e for e in events
+                if any(
+                    query in (e.get(field) or "").lower()
+                    for field in (
+                        "device_name", "device_id", "manufacturer", "scan_result",
+                    )
+                )
+            ]
         self.table.load_events(events)
         self._count_label.setText(f"{len(events)} events")
 
