@@ -9,19 +9,21 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
     QStatusBar, QLabel, QComboBox, QPushButton,
 )
-from pathlib import Path
-
-from core.monitor import get_connected_devices
+from core.monitor import get_connected_devices, get_external_devices
+from core.paths import resource_path
 from ui.device_list import ConnectedDevicesTable
 from ui.device_detail import DeviceDetailPanel
 from ui.history_view import HistoryView
 from ui.settings_dialog import SettingsDialog
 
-_ASSETS = Path(__file__).parent.parent / "assets"
+_ASSETS = resource_path("assets")
+
+# Sentinel for the grouped external-devices view.
+_EXTERNAL = "__external__"
 
 # Device classes to show in the filter dropdown
 _CLASS_FILTERS = [
-    ("All Devices", None),
+    ("External Devices", _EXTERNAL),
     ("USB", "USB"),
     ("HID", "HIDClass"),
     ("Bluetooth", "Bluetooth"),
@@ -29,6 +31,7 @@ _CLASS_FILTERS = [
     ("Audio", "AudioEndpoint"),
     ("Network", "Net"),
     ("Storage", "DiskDrive"),
+    ("All PnP Devices", None),
 ]
 
 
@@ -97,7 +100,7 @@ class MainWindow(QMainWindow):
         filter_bar.addWidget(self._device_count_label)
 
         refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self._refresh_devices)
+        refresh_btn.clicked.connect(lambda: self._refresh_devices(force=True))
         filter_bar.addWidget(refresh_btn)
 
         devices_outer.addLayout(filter_bar)
@@ -137,22 +140,38 @@ class MainWindow(QMainWindow):
 
         # Map device_id -> latest scan info (for detail panel + table badge).
         self._latest_scans: dict[str, dict] = {}
+        # Monotonic id of the latest refresh request (stale-result guard).
+        self._refresh_seq = 0
 
         # Initial load (in background to avoid blocking the UI)
-        self._refresh_devices()
+        self._refresh_devices(force=True)
 
     def _switch_page(self, index: int) -> None:
         self._stack.setCurrentIndex(index)
         self._detail_panel.clear()
 
-    def _refresh_devices(self) -> None:
-        """Reload the connected devices table from WMI (runs query in a thread)."""
+    def _refresh_devices(self, *_args, force: bool = False) -> None:
+        """Reload the connected devices table (WMI query runs in a thread).
+
+        Category switches reuse a recent cached snapshot (instant); device
+        events and the Refresh button pass force=True to re-query WMI."""
         idx = self._class_combo.currentIndex()
         _, class_filter = _CLASS_FILTERS[idx] if idx < len(_CLASS_FILTERS) else (None, None)
+        max_age = 0.0 if force else 30.0
+
+        # Drop results of superseded refreshes so a slow query that was
+        # already in flight can't overwrite a newer one.
+        self._refresh_seq += 1
+        seq = self._refresh_seq
 
         def _query():
-            devices = get_connected_devices(class_filter)
+            if class_filter == _EXTERNAL:
+                devices = get_external_devices(max_age_sec=max_age)
+            else:
+                devices = get_connected_devices(class_filter, max_age_sec=max_age)
             devices.sort(key=lambda d: (d.get("name") or "").lower())
+            if seq != self._refresh_seq:
+                return
             # Marshal back to the main thread — widgets must not be touched here.
             self._devices_loaded.emit(devices)
 
@@ -166,7 +185,7 @@ class MainWindow(QMainWindow):
     @pyqtSlot(dict)
     def _on_device_event(self, event_info: dict) -> None:
         """Called (via signal) when a device connects or disconnects."""
-        self._refresh_devices()
+        self._refresh_devices(force=True)
         event_type = event_info.get("event_type", "")
         name = event_info.get("device_name") or "Unknown device"
         if event_type == "connect":

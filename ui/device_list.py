@@ -4,7 +4,28 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 
 
-class ConnectedDevicesTable(QTableWidget):
+class _SortToggleTable(QTableWidget):
+    """QTableWidget where rapid header clicks keep toggling the sort.
+
+    Qt swallows the second of two quick clicks as a double-click, which
+    normally does nothing on a header — making sort toggling feel laggy.
+    Treat it as another sort toggle instead."""
+
+    def __init__(self, rows: int, cols: int, parent=None):
+        super().__init__(rows, cols, parent)
+        self.horizontalHeader().sectionDoubleClicked.connect(self._toggle_sort)
+
+    def _toggle_sort(self, section: int) -> None:
+        header = self.horizontalHeader()
+        flipped = (
+            Qt.SortOrder.DescendingOrder
+            if header.sortIndicatorOrder() == Qt.SortOrder.AscendingOrder
+            else Qt.SortOrder.AscendingOrder
+        )
+        header.setSortIndicator(section, flipped)
+
+
+class ConnectedDevicesTable(_SortToggleTable):
     """Table showing currently connected PnP devices."""
 
     row_selected = pyqtSignal(dict)
@@ -31,8 +52,17 @@ class ConnectedDevicesTable(QTableWidget):
         self.itemSelectionChanged.connect(self._on_selection_changed)
 
     def load_devices(self, devices: list[dict]) -> None:
+        # Remember the selection so background refreshes don't wipe it.
+        selected_id = None
+        rows = self.selectionModel().selectedRows()
+        if rows:
+            sel_item = self.item(rows[0].row(), 3)
+            if sel_item:
+                selected_id = sel_item.text()
+
         self.setSortingEnabled(False)
         self.setRowCount(0)
+        self.setCurrentItem(None)
         self._devices = devices
 
         for row_idx, dev in enumerate(devices):
@@ -46,9 +76,17 @@ class ConnectedDevicesTable(QTableWidget):
             for col_idx, text in enumerate(items):
                 item = QTableWidgetItem(text)
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                item.setToolTip(text)
                 self.setItem(row_idx, col_idx, item)
 
         self.setSortingEnabled(True)
+
+        if selected_id:
+            for row_idx in range(self.rowCount()):
+                item = self.item(row_idx, 3)
+                if item and item.text() == selected_id:
+                    self.selectRow(row_idx)
+                    break
 
     def _on_selection_changed(self) -> None:
         rows = self.selectionModel().selectedRows()
@@ -65,7 +103,7 @@ class ConnectedDevicesTable(QTableWidget):
                         return
 
 
-class EventHistoryTable(QTableWidget):
+class EventHistoryTable(_SortToggleTable):
     """Table showing device event history from the database."""
 
     row_selected = pyqtSignal(dict)

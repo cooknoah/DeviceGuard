@@ -50,14 +50,27 @@ QTableWidget {
 }
 QTableWidget::item {
     padding: 6px 10px;
+    border: none;
+}
+QTableWidget::item:selected {
+    background-color: #0f3460;
+    color: #00d4aa;
+    border: none;
 }
 QHeaderView::section {
     background-color: #0f3460;
     color: #00d4aa;
-    padding: 8px 10px;
+    padding: 8px 18px 8px 10px;
     border: none;
     border-right: 1px solid #16213e;
     font-weight: bold;
+}
+QHeaderView::up-arrow, QHeaderView::down-arrow {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 12px;
+    height: 12px;
+    right: 4px;
 }
 
 /* ── Scroll bars ── */
@@ -162,6 +175,14 @@ QStatusBar {
     background-color: #0f3460;
     color: #00d4aa;
     font-size: 12px;
+}
+QStatusBar::item {
+    border: none;
+}
+QSizeGrip {
+    background-color: #0f3460;
+    width: 12px;
+    height: 12px;
 }
 
 /* ── Splitter ── */

@@ -10,7 +10,7 @@ import threading
 
 from core.config import load_config
 from core import logger
-from core.monitor import DeviceMonitor
+from core.monitor import DeviceMonitor, pick_best_device as _pick_best
 from core.notifier import notify_connect, notify_disconnect, notify_threat
 from core.tray import TrayManager
 from core.startup import sync_startup
@@ -27,35 +27,6 @@ _connect_timer: threading.Timer | None = None
 _disconnect_timer: threading.Timer | None = None
 _last_connect_toast: float = 0.0
 _last_disconnect_toast: float = 0.0
-
-_GENERIC_KEYWORDS = [
-    "USB Input Device",
-    "USB Composite Device",
-    "HID-compliant",
-    "USB Root Hub",
-    "XINPUT compatible",
-    "HID-conformant",
-]
-
-
-def _is_generic(name: str) -> bool:
-    for kw in _GENERIC_KEYWORDS:
-        if kw.lower() in name.lower():
-            return True
-    return False
-
-
-def _pick_best(devices: list[dict]) -> dict:
-    """Pick the most descriptive device dict from a burst of interface events."""
-    for d in devices:
-        name = d.get("name") or ""
-        if name and not _is_generic(name):
-            return d
-    for d in devices:
-        if d.get("name"):
-            return d
-    return devices[0] if devices else {}
-
 
 _pending_connects: list[dict] = []
 _pending_disconnects: list[dict] = []

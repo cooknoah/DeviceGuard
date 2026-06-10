@@ -1,7 +1,15 @@
 """Device detail panel showing full info for a selected device or event."""
 
-from PyQt6.QtCore import Qt
+import re
+
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QGridLayout
+
+
+def _breakable(text: str) -> str:
+    """Insert zero-width spaces after separators so unbroken tokens
+    (device IDs like USB\\VID_046D&PID_C31C\\...) can word-wrap."""
+    return re.sub(r"([\\&_/])", lambda m: m.group(1) + "\u200b", text)
 
 
 _STATUS_COLORS = {
@@ -31,11 +39,14 @@ class DeviceDetailPanel(QFrame):
         self.setObjectName("detail_panel")
         self.setMinimumWidth(280)
 
+        # No setAlignment(AlignTop) here: it forces children to their size
+        # hints, which breaks height-for-width on word-wrapped labels.
+        # The addStretch() at the end pins content to the top instead.
         layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self._title = QLabel("Select a device")
         self._title.setObjectName("detail_title")
+        self._title.setWordWrap(True)
         layout.addWidget(self._title)
 
         self._scan_badge = QLabel("")
@@ -62,6 +73,9 @@ class DeviceDetailPanel(QFrame):
         self._grid = QGridLayout()
         self._grid.setVerticalSpacing(8)
         self._grid.setHorizontalSpacing(12)
+        # Let the value column absorb the panel width so word-wrapped
+        # labels compute their height from the real available width.
+        self._grid.setColumnStretch(1, 1)
         layout.addLayout(self._grid)
 
         self._rows: list[tuple[QLabel, QLabel]] = []
@@ -84,13 +98,28 @@ class DeviceDetailPanel(QFrame):
         row = len(self._rows)
         label = QLabel(label_text)
         label.setObjectName("detail_label")
-        value = QLabel(value_text)
+        value = QLabel(_breakable(value_text))
         value.setObjectName("detail_value")
         value.setWordWrap(True)
+        value.setToolTip(value_text)
         value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._grid.addWidget(label, row, 0, Qt.AlignmentFlag.AlignTop)
         self._grid.addWidget(value, row, 1)
         self._rows.append((label, value))
+        # Height-for-width doesn't always propagate through the grid when
+        # rows are added to an already-visible panel; enforce it deferred,
+        # once the label has its final width.
+        QTimer.singleShot(0, self._apply_wrap_heights)
+
+    def _apply_wrap_heights(self) -> None:
+        for _, value in self._rows:
+            w = value.width()
+            if w > 0:
+                value.setMinimumHeight(value.heightForWidth(w))
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._apply_wrap_heights)
 
     def _render_scan(self, scan_info: dict | None) -> None:
         if not scan_info:
