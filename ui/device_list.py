@@ -3,6 +3,9 @@
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 
+from core.security.types import ScanStatus
+from ui.scan_status import EVENT_LABELS, is_alert_result, status_of_log_string
+
 
 class _SortToggleTable(QTableWidget):
     """QTableWidget where rapid header clicks keep toggling the sort.
@@ -146,16 +149,8 @@ class EventHistoryTable(_SortToggleTable):
             event_type = ev.get("event_type", "")
             scan_result = ev.get("scan_result") or ""
             if event_type == "scan":
-                if scan_result.startswith("threats_found"):
-                    event_label = "Threats Found"
-                elif scan_result.startswith("unsigned"):
-                    event_label = "Unsigned Driver"
-                elif scan_result.startswith("clean"):
-                    event_label = "Scan Clean"
-                elif scan_result.startswith("error"):
-                    event_label = "Scan Error"
-                else:
-                    event_label = "Scan"
+                scan_status = status_of_log_string(scan_result)
+                event_label = EVENT_LABELS.get(scan_status, "Scan")
             elif event_type == "connect":
                 event_label = "Connected"
             else:
@@ -177,9 +172,9 @@ class EventHistoryTable(_SortToggleTable):
                     elif event_type == "disconnect":
                         item.setForeground(Qt.GlobalColor.red)
                     elif event_type == "scan":
-                        if scan_result.startswith(("threats_found", "unsigned", "error")):
+                        if is_alert_result(scan_result):
                             item.setForeground(Qt.GlobalColor.red)
-                        elif scan_result.startswith("clean"):
+                        elif status_of_log_string(scan_result) == ScanStatus.CLEAN:
                             item.setForeground(Qt.GlobalColor.cyan)
                 self.setItem(row_idx, col_idx, item)
 

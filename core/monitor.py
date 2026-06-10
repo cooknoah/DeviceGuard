@@ -1,4 +1,3 @@
-import re
 import threading
 import time
 from typing import Callable
@@ -26,8 +25,6 @@ _GENERIC_KEYWORDS = (
 
 # Device ID prefixes for externally-attached buses.
 _EXTERNAL_PREFIXES = ("USB\\", "USBSTOR\\", "HID\\", "BTHENUM\\", "BTHLE\\", "WPD\\")
-
-_VIDPID_RE = re.compile(r"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})", re.IGNORECASE)
 
 
 def is_generic_name(name: str | None) -> bool:
@@ -133,7 +130,7 @@ def get_external_devices(max_age_sec: float = 0.0) -> list[dict]:
             continue
         if d.get("pnp_class") == "USB" and "hub" in (d.get("name") or "").lower():
             continue
-        m = _VIDPID_RE.search(dev_id)
+        m = device_names.VIDPID_RE.search(dev_id)
         key = m.group(0).upper() if m else dev_id
         grouped.setdefault(key, []).append(d)
 

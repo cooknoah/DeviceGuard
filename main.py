@@ -23,63 +23,57 @@ _DEBOUNCE_SECS = 0.8
 _COOLDOWN_SECS = 5.0
 
 _pending_lock = threading.Lock()
-_connect_timer: threading.Timer | None = None
-_disconnect_timer: threading.Timer | None = None
-_last_connect_toast: float = 0.0
-_last_disconnect_toast: float = 0.0
-
-_pending_connects: list[dict] = []
-_pending_disconnects: list[dict] = []
 
 
-def _flush_connects(config: dict) -> None:
-    global _connect_timer, _last_connect_toast
-    with _pending_lock:
-        batch = list(_pending_connects)
-        _pending_connects.clear()
-        _connect_timer = None
-    if not batch:
-        return
-    best = _pick_best(batch)
-    name = best.get("name") or "Unknown device"
-    logger.log_event(
-        event_type="connect",
-        device_name=name,
-        device_id=best.get("device_id"),
-        device_class=best.get("pnp_class"),
-        manufacturer=best.get("manufacturer"),
-    )
-    if _window:
-        _window.notify_device_event("connect", best)
-    now = time.monotonic()
-    if config.get("notify_on_connect", True) and now - _last_connect_toast >= _COOLDOWN_SECS:
-        notify_connect(name)
-        _last_connect_toast = now
+class _EventBatch:
+    """Debounced batch of raw WMI events for one event type.
+
+    A composite device fires one raw event per interface; batching them
+    yields one history row, one UI update, and one (cooldown-limited) toast."""
+
+    def __init__(self, event_type: str, notify_config_key: str, notify):
+        self._event_type = event_type
+        self._notify_config_key = notify_config_key
+        self._notify = notify
+        self._pending: list[dict] = []
+        self._timer: threading.Timer | None = None
+        self._last_toast: float = 0.0
+
+    def add(self, device_info: dict, config: dict) -> None:
+        with _pending_lock:
+            self._pending.append(device_info)
+            if self._timer is not None:
+                self._timer.cancel()
+            self._timer = threading.Timer(_DEBOUNCE_SECS, self._flush, args=(config,))
+            self._timer.daemon = True
+            self._timer.start()
+
+    def _flush(self, config: dict) -> None:
+        with _pending_lock:
+            batch = list(self._pending)
+            self._pending.clear()
+            self._timer = None
+        if not batch:
+            return
+        best = _pick_best(batch)
+        name = best.get("name") or "Unknown device"
+        logger.log_event(
+            event_type=self._event_type,
+            device_name=name,
+            device_id=best.get("device_id"),
+            device_class=best.get("pnp_class"),
+            manufacturer=best.get("manufacturer"),
+        )
+        if _window:
+            _window.notify_device_event(self._event_type, best)
+        now = time.monotonic()
+        if config.get(self._notify_config_key, True) and now - self._last_toast >= _COOLDOWN_SECS:
+            self._notify(name)
+            self._last_toast = now
 
 
-def _flush_disconnects(config: dict) -> None:
-    global _disconnect_timer, _last_disconnect_toast
-    with _pending_lock:
-        batch = list(_pending_disconnects)
-        _pending_disconnects.clear()
-        _disconnect_timer = None
-    if not batch:
-        return
-    best = _pick_best(batch)
-    name = best.get("name") or "Unknown device"
-    logger.log_event(
-        event_type="disconnect",
-        device_name=name,
-        device_id=best.get("device_id"),
-        device_class=best.get("pnp_class"),
-        manufacturer=best.get("manufacturer"),
-    )
-    if _window:
-        _window.notify_device_event("disconnect", best)
-    now = time.monotonic()
-    if config.get("notify_on_disconnect", True) and now - _last_disconnect_toast >= _COOLDOWN_SECS:
-        notify_disconnect(name)
-        _last_disconnect_toast = now
+_connect_batch = _EventBatch("connect", "notify_on_connect", notify_connect)
+_disconnect_batch = _EventBatch("disconnect", "notify_on_disconnect", notify_disconnect)
 
 
 # Reference to the main window, set in main()
@@ -139,33 +133,15 @@ def _handle_scan_result(result: ScanResult) -> None:
 def on_connect(device_info: dict, config: dict) -> None:
     """Raw WMI connect event — one per interface of a composite device.
     Scanning sees every raw event; logging/UI/toast are batched in the flush."""
-    global _connect_timer
     print(f"[+] Device connected:  {device_info}")
     if _scanner is not None:
         _scanner.scan_device(device_info)
-    with _pending_lock:
-        _pending_connects.append(device_info)
-        if _connect_timer is not None:
-            _connect_timer.cancel()
-        _connect_timer = threading.Timer(
-            _DEBOUNCE_SECS, _flush_connects, args=(config,)
-        )
-        _connect_timer.daemon = True
-        _connect_timer.start()
+    _connect_batch.add(device_info, config)
 
 
 def on_disconnect(device_info: dict, config: dict) -> None:
-    global _disconnect_timer
     print(f"[-] Device disconnected: {device_info}")
-    with _pending_lock:
-        _pending_disconnects.append(device_info)
-        if _disconnect_timer is not None:
-            _disconnect_timer.cancel()
-        _disconnect_timer = threading.Timer(
-            _DEBOUNCE_SECS, _flush_disconnects, args=(config,)
-        )
-        _disconnect_timer.daemon = True
-        _disconnect_timer.start()
+    _disconnect_batch.add(device_info, config)
 
 
 def main() -> None:

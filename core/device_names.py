@@ -17,7 +17,8 @@ from ctypes import wintypes
 
 from core.paths import resource_path
 
-_VIDPID_RE = re.compile(r"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})", re.IGNORECASE)
+# Shared by name resolution here and device grouping in core.monitor.
+VIDPID_RE = re.compile(r"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})", re.IGNORECASE)
 
 # ── Bus-reported device description (cfgmgr32) ──
 
@@ -136,7 +137,7 @@ def _load_usb_ids() -> dict[str, tuple[str, dict[str, str]]]:
 
 def usb_ids_lookup(device_id: str) -> tuple[str | None, str | None]:
     """(vendor, product) from the bundled usb.ids for a device ID, or Nones."""
-    m = _VIDPID_RE.search(device_id or "")
+    m = VIDPID_RE.search(device_id or "")
     if not m:
         return None, None
     db = _load_usb_ids()

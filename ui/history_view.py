@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 
 from core import logger
 from ui.device_list import EventHistoryTable
+from ui.scan_status import is_alert_result
 
 
 class HistoryView(QWidget):
@@ -55,12 +56,7 @@ class HistoryView(QWidget):
         idx = self._filter_combo.currentIndex()
         if idx == 4:  # Threats Only
             events = logger.get_events(limit=500, event_type_filter="scan")
-            events = [
-                e for e in events
-                if (e.get("scan_result") or "").startswith(
-                    ("threats_found", "unsigned", "error")
-                )
-            ]
+            events = [e for e in events if is_alert_result(e.get("scan_result"))]
         else:
             events = logger.get_events(limit=500, event_type_filter=self._get_filter())
         self.table.load_events(events)

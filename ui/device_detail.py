@@ -5,30 +5,14 @@ import re
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QGridLayout
 
+from ui.scan_status import BADGE_LABELS, STATUS_COLORS
+
 
 def _breakable(text: str) -> str:
     """Insert zero-width spaces after separators so unbroken tokens
     (device IDs like USB\\VID_046D&PID_C31C\\...) can word-wrap."""
     return re.sub(r"([\\&_/])", lambda m: m.group(1) + "\u200b", text)
 
-
-_STATUS_COLORS = {
-    "clean": "#4caf50",
-    "scanning": "#2196f3",
-    "threats_found": "#f44336",
-    "unsigned": "#ff9800",
-    "error": "#9e9e9e",
-    "skipped": "#9e9e9e",
-}
-
-_STATUS_LABELS = {
-    "clean": "Clean",
-    "scanning": "Scanning…",
-    "threats_found": "Threats Found",
-    "unsigned": "Unsigned Driver",
-    "error": "Scan Error",
-    "skipped": "Scan Skipped",
-}
 
 
 class DeviceDetailPanel(QFrame):
@@ -128,8 +112,8 @@ class DeviceDetailPanel(QFrame):
             self._findings_label.setVisible(False)
             return
         status = scan_info.get("status", "")
-        color = _STATUS_COLORS.get(status, "#9e9e9e")
-        label = _STATUS_LABELS.get(status, status.title() or "Unknown")
+        color = STATUS_COLORS.get(status, "#9e9e9e")
+        label = BADGE_LABELS.get(status, status.title() or "Unknown")
         self._scan_badge.setStyleSheet(
             f"padding: 4px 8px; border-radius: 4px; "
             f"color: white; font-weight: bold; background-color: {color};"

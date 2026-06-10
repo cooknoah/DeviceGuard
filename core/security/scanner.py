@@ -53,23 +53,6 @@ def _list_removable_drives() -> set[str]:
     return {root for root, dtype in _list_drives() if dtype == _DRIVE_REMOVABLE}
 
 
-def _wait_for_new_drive(
-    baseline: set[str],
-    timeout_sec: float = 8.0,
-    poll_interval: float = 0.4,
-) -> str | None:
-    """Poll until a removable drive appears that wasn't in baseline."""
-    deadline = time.monotonic() + timeout_sec
-    while time.monotonic() < deadline:
-        current = _list_removable_drives()
-        new = current - baseline
-        for root in new:
-            if Path(root).exists():
-                return root
-        time.sleep(poll_interval)
-    return None
-
-
 class Scanner:
     """Manages background scan execution for device events."""
 
@@ -87,7 +70,31 @@ class Scanner:
         )
         self._driver_checked: set[str] = set()
         self._driver_lock = threading.Lock()
+        # Drives already present or claimed by a scan; guarded by _baseline_lock
+        # so concurrent storage scans each claim a distinct new drive.
+        self._baseline_lock = threading.Lock()
         self._removable_baseline: set[str] = _list_removable_drives()
+
+    def _claim_new_drive(
+        self,
+        timeout_sec: float = 8.0,
+        poll_interval: float = 0.4,
+    ) -> str | None:
+        """Poll until a removable drive appears that isn't in the baseline,
+        atomically claiming it so no other concurrent scan picks it up."""
+        deadline = time.monotonic() + timeout_sec
+        while True:
+            current = _list_removable_drives()
+            with self._baseline_lock:
+                # Forget unplugged drives so a re-plug is detected as new.
+                self._removable_baseline &= current
+                for root in current - self._removable_baseline:
+                    if Path(root).exists():
+                        self._removable_baseline.add(root)
+                        return root
+            if time.monotonic() >= deadline:
+                return None
+            time.sleep(poll_interval)
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
@@ -139,10 +146,7 @@ class Scanner:
             summary="waiting for drive to mount",
         ))
 
-        drive_root = _wait_for_new_drive(self._removable_baseline)
-        # Always update baseline whether or not we found a drive.
-        self._removable_baseline = _list_removable_drives()
-
+        drive_root = self._claim_new_drive()
         if drive_root is None:
             # No new removable drive showed up — probably not a mass-storage device.
             return

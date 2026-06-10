@@ -14,6 +14,7 @@ from core.paths import resource_path
 from ui.device_list import ConnectedDevicesTable
 from ui.device_detail import DeviceDetailPanel
 from ui.history_view import HistoryView
+from ui.scan_status import STATUS_MESSAGES
 from ui.settings_dialog import SettingsDialog
 
 _ASSETS = resource_path("assets")
@@ -215,16 +216,9 @@ class MainWindow(QMainWindow):
         status = scan_info.get("status", "")
         name = scan_info.get("device_name") or "device"
         summary = scan_info.get("summary") or ""
-        if status == "scanning":
-            self._status_label.setText(f"Scanning {name}: {summary}")
-        elif status == "threats_found":
-            self._status_label.setText(f"Threats found on {name}: {summary}")
-        elif status == "unsigned":
-            self._status_label.setText(f"Unsigned driver: {name}")
-        elif status == "clean":
-            self._status_label.setText(f"Scan clean: {name}")
-        elif status == "error":
-            self._status_label.setText(f"Scan error ({name}): {summary}")
+        message = STATUS_MESSAGES.get(status)
+        if message:
+            self._status_label.setText(message.format(name=name, summary=summary))
         # Refresh detail panel if it's showing this device.
         self._detail_panel.update_scan(scan_info)
         # If we just finished a scan, refresh history to show the new scan row.
