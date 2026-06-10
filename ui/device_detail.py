@@ -47,6 +47,7 @@ class DeviceDetailPanel(QFrame):
         self._title.setObjectName("detail_title")
         self._title.setWordWrap(True)
         layout.addWidget(self._title)
+        layout.addSpacing(12)
 
         self._scan_badge = QLabel("")
         self._scan_badge.setObjectName("scan_badge")
@@ -70,7 +71,7 @@ class DeviceDetailPanel(QFrame):
         layout.addSpacing(12)
 
         self._grid = QGridLayout()
-        self._grid.setVerticalSpacing(8)
+        self._grid.setVerticalSpacing(10)
         self._grid.setHorizontalSpacing(12)
         # Let the value column absorb the panel width so word-wrapped
         # labels compute their height from the real available width.
@@ -137,7 +138,7 @@ class DeviceDetailPanel(QFrame):
         badge = QLabel(text)
         badge.setStyleSheet(
             f"background-color: {bg}; color: {fg}; border-radius: 4px; "
-            f"padding: 2px 8px; font-size: 11px; font-weight: 600;"
+            f"padding: 3px 10px; font-size: 12px; font-weight: 500;"
         )
         # Keep the pill snug instead of stretching across the column.
         container = QWidget()

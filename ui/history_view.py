@@ -65,7 +65,7 @@ class HistoryView(QWidget):
         table_card = QFrame()
         table_card.setObjectName("table_card")
         card_layout = QVBoxLayout(table_card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(12, 8, 12, 8)
         card_layout.addWidget(self.table)
         layout.addWidget(table_card)
 

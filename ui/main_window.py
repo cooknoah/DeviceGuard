@@ -89,6 +89,7 @@ class MainWindow(QMainWindow):
 
         # Filter toolbar
         filter_bar = QHBoxLayout()
+        filter_bar.setSpacing(8)
         filter_bar.addWidget(QLabel("Category:"))
         self._class_combo = QComboBox()
         for label, _ in _CLASS_FILTERS:
@@ -115,7 +116,7 @@ class MainWindow(QMainWindow):
         table_card = QFrame()
         table_card.setObjectName("table_card")
         card_layout = QVBoxLayout(table_card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(12, 8, 12, 8)
         card_layout.addWidget(self._device_table)
         splitter.addWidget(table_card)
 
@@ -135,8 +136,10 @@ class MainWindow(QMainWindow):
         # ── Status bar ──
         self._status = QStatusBar()
         self.setStatusBar(self._status)
-        status_dot = QLabel("●")
+        status_dot = QLabel()
         status_dot.setObjectName("status_dot")
+        # 8x8 circle + the 6px left margin from the stylesheet.
+        status_dot.setFixedSize(14, 8)
         self._status.addWidget(status_dot)
         self._status_label = QLabel("Monitoring active")
         self._status_label.setObjectName("status_text")

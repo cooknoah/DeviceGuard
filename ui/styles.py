@@ -3,14 +3,23 @@
 Palette (three background layers + soft teal accent):
   page #0a1628 · surface #0f2035 · raised card #162840
   accent #38bdf8 · body text #cbd5e1 · muted #94a3b8 / #64748b
-  borders rgba(255,255,255,8%)
-Radius scale: 6px badges/chips · 8px buttons/inputs · 10px panels · 12px table card/sidebar.
+  borders rgba(255,255,255,7%)
+Radius scale: 4px status pills · 6px badges/chips · 8px buttons/inputs · 10px cards/panels.
+
+Translucent fills on item views (selection, sidebar pill, alternating rows)
+are pre-blended into solid hex over their surface color — Qt composites
+rgba item fills over its default highlight, so only solids render true.
 """
 
 PAGE_BG = "#0a1628"
 SURFACE_BG = "#0f2035"
 CARD_BG = "#162840"
-BORDER = "rgba(255, 255, 255, 8%)"
+BORDER = "rgba(255, 255, 255, 7%)"
+SELECTION_BG = "#133049"    # rgba(56,189,248,0.10) over surface
+SIDEBAR_ACTIVE = "#14334c"  # rgba(56,189,248,0.12) over surface
+SIDEBAR_HOVER = "#1b2b3f"   # rgba(255,255,255,0.05) over surface
+ALT_ROW = "#15263a"         # rgba(255,255,255,0.025) over surface
+ROW_SEPARATOR = "#22334a"   # rgba(255,255,255,0.05) over card
 ACCENT = "#38bdf8"
 BODY_TEXT = "#cbd5e1"
 MUTED = "#94a3b8"
@@ -45,16 +54,18 @@ QListWidget#sidebar::item {{
     padding: 10px 16px;
     border-radius: 6px;
     border-left: 3px solid transparent;
-    margin: 2px 4px;
+    margin: 2px 8px;
     color: {MUTED};
 }}
 QListWidget#sidebar::item:selected {{
-    background-color: rgba(56, 189, 248, 10%);
+    background-color: {SIDEBAR_ACTIVE};
     border-left: 3px solid {ACCENT};
+    border-radius: 6px;
     color: {ACCENT};
 }}
 QListWidget#sidebar::item:hover:!selected {{
-    background-color: rgba(255, 255, 255, 4%);
+    background-color: {SIDEBAR_HOVER};
+    border-radius: 6px;
     color: {BODY_TEXT};
 }}
 
@@ -62,20 +73,17 @@ QListWidget#sidebar::item:hover:!selected {{
 QFrame#table_card {{
     background-color: {SURFACE_BG};
     border: 1px solid {BORDER};
-    border-radius: 12px;
+    border-radius: 10px;
 }}
 
 /* ── Tables ── */
-/* Selection/alternate fills are the spec's rgba values pre-blended over the
-   surface color (#0f2035) — Qt composites translucent item:selected colors
-   on top of the default highlight, so only solid colors render correctly. */
 QTableWidget {{
     background-color: transparent;
-    alternate-background-color: #132439;   /* rgba(255,255,255,0.02) */
+    alternate-background-color: {ALT_ROW};
     border: none;
     gridline-color: transparent;
-    selection-background-color: #14334c;   /* rgba(56,189,248,0.12) */
-    selection-color: #e2f3ff;
+    selection-background-color: {SELECTION_BG};
+    selection-color: {BODY_TEXT};
     outline: none;
 }}
 QTableWidget::item {{
@@ -83,8 +91,8 @@ QTableWidget::item {{
     border: none;
 }}
 QTableWidget::item:selected {{
-    background-color: #14334c;
-    color: #e2f3ff;
+    background-color: {SELECTION_BG};
+    color: {BODY_TEXT};
 }}
 QHeaderView::section {{
     background-color: {SURFACE_BG};
@@ -92,7 +100,7 @@ QHeaderView::section {{
     padding: 8px 18px 8px 10px;
     border: none;
     border-bottom: 1px solid {BORDER};
-    font-weight: 600;
+    font-weight: 500;
 }}
 QHeaderView::up-arrow, QHeaderView::down-arrow {{
     subcontrol-origin: padding;
@@ -164,7 +172,7 @@ QLabel#detail_value {{
     font-size: 13px;
 }}
 QFrame#row_separator {{
-    background-color: {BORDER};
+    background-color: {ROW_SEPARATOR};
     border: none;
     max-height: 1px;
     min-height: 1px;
@@ -232,26 +240,26 @@ QLineEdit:focus {{
 /* ── Muted secondary labels (device count, history count) ── */
 QLabel#muted_label {{
     color: {MUTED_DIM};
-    font-size: 11px;
+    font-size: 12px;
 }}
 
 /* ── Status bar ── */
 QStatusBar {{
     background-color: {PAGE_BG};
     border-top: 1px solid {BORDER};
-    padding: 6px 8px;
+    padding: 8px 8px;
     font-size: 12px;
 }}
 QStatusBar::item {{
     border: none;
 }}
 QLabel#status_dot {{
-    color: #4ade80;
-    font-size: 10px;
-    padding: 0 2px 0 6px;
+    background-color: #4ade80;
+    border-radius: 4px;
+    margin-left: 6px;
 }}
 QLabel#status_text {{
-    color: {MUTED};
+    color: {MUTED_DIM};
     font-size: 12px;
 }}
 QSizeGrip {{
