@@ -106,7 +106,22 @@ class EventHistoryTable(QTableWidget):
                 ts = ts.replace("T", " ").split("+")[0].split(".")[0]
 
             event_type = ev.get("event_type", "")
-            event_label = "Connected" if event_type == "connect" else "Disconnected"
+            scan_result = ev.get("scan_result") or ""
+            if event_type == "scan":
+                if scan_result.startswith("threats_found"):
+                    event_label = "Threats Found"
+                elif scan_result.startswith("unsigned"):
+                    event_label = "Unsigned Driver"
+                elif scan_result.startswith("clean"):
+                    event_label = "Scan Clean"
+                elif scan_result.startswith("error"):
+                    event_label = "Scan Error"
+                else:
+                    event_label = "Scan"
+            elif event_type == "connect":
+                event_label = "Connected"
+            else:
+                event_label = "Disconnected"
 
             items = [
                 ts,
@@ -119,10 +134,15 @@ class EventHistoryTable(QTableWidget):
                 item = QTableWidgetItem(text)
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 if col_idx == 1:
-                    item.setForeground(
-                        Qt.GlobalColor.green if event_type == "connect"
-                        else Qt.GlobalColor.red
-                    )
+                    if event_type == "connect":
+                        item.setForeground(Qt.GlobalColor.green)
+                    elif event_type == "disconnect":
+                        item.setForeground(Qt.GlobalColor.red)
+                    elif event_type == "scan":
+                        if scan_result.startswith(("threats_found", "unsigned", "error")):
+                            item.setForeground(Qt.GlobalColor.red)
+                        elif scan_result.startswith("clean"):
+                            item.setForeground(Qt.GlobalColor.cyan)
                 self.setItem(row_idx, col_idx, item)
 
         self.setSortingEnabled(True)

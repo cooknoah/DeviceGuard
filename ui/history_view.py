@@ -22,7 +22,9 @@ class HistoryView(QWidget):
         toolbar.addWidget(QLabel("Filter:"))
 
         self._filter_combo = QComboBox()
-        self._filter_combo.addItems(["All Events", "Connections", "Disconnections"])
+        self._filter_combo.addItems([
+            "All Events", "Connections", "Disconnections", "Scans", "Threats Only",
+        ])
         self._filter_combo.currentIndexChanged.connect(self._refresh)
         toolbar.addWidget(self._filter_combo)
 
@@ -47,16 +49,26 @@ class HistoryView(QWidget):
 
     def _get_filter(self) -> str | None:
         idx = self._filter_combo.currentIndex()
-        if idx == 1:
-            return "connect"
-        elif idx == 2:
-            return "disconnect"
-        return None
+        return {1: "connect", 2: "disconnect", 3: "scan"}.get(idx)
 
     def _refresh(self) -> None:
-        events = logger.get_events(limit=500, event_type_filter=self._get_filter())
+        idx = self._filter_combo.currentIndex()
+        if idx == 4:  # Threats Only
+            events = logger.get_events(limit=500, event_type_filter="scan")
+            events = [
+                e for e in events
+                if (e.get("scan_result") or "").startswith(
+                    ("threats_found", "unsigned", "error")
+                )
+            ]
+        else:
+            events = logger.get_events(limit=500, event_type_filter=self._get_filter())
         self.table.load_events(events)
         self._count_label.setText(f"{len(events)} events")
+
+    def refresh_if_visible(self) -> None:
+        if self.isVisible():
+            self._refresh()
 
     def _export_csv(self) -> None:
         path, _ = QFileDialog.getSaveFileName(

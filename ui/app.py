@@ -8,12 +8,12 @@ from ui.styles import DARK_THEME
 from ui.main_window import MainWindow
 
 
-def create_app() -> tuple[QApplication, MainWindow]:
+def create_app(config: dict | None = None) -> tuple[QApplication, MainWindow]:
     """Create and configure the QApplication and main window.
     Returns (app, window) — caller is responsible for app.exec()."""
     app = QApplication(sys.argv)
     app.setApplicationName("DeviceGuard")
     app.setStyleSheet(DARK_THEME)
 
-    window = MainWindow()
+    window = MainWindow(config=config)
     return app, window

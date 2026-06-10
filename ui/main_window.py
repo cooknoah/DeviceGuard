@@ -36,9 +36,16 @@ class MainWindow(QMainWindow):
     """DeviceGuard main window."""
 
     device_event = pyqtSignal(dict)
+    scan_event = pyqtSignal(dict)
+    _devices_loaded = pyqtSignal(list)
+    # Emitted from the tray (pystray) thread; slots run on the Qt main thread.
+    _tray_open_requested = pyqtSignal()
+    _tray_settings_requested = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, config: dict | None = None):
         super().__init__()
+        # Live config dict shared with main.py / Scanner so settings edits apply at runtime.
+        self._config = config if config is not None else {}
         self.setWindowTitle("DeviceGuard")
         self.setMinimumSize(960, 600)
         self.resize(1100, 700)
@@ -123,6 +130,13 @@ class MainWindow(QMainWindow):
         self._device_table.row_selected.connect(self._detail_panel.show_device)
         self._history_view.table.row_selected.connect(self._detail_panel.show_event)
         self.device_event.connect(self._on_device_event)
+        self.scan_event.connect(self._on_scan_event)
+        self._devices_loaded.connect(self._on_devices_loaded)
+        self._tray_open_requested.connect(self._bring_to_front)
+        self._tray_settings_requested.connect(self._open_settings_on_main_thread)
+
+        # Map device_id -> latest scan info (for detail panel + table badge).
+        self._latest_scans: dict[str, dict] = {}
 
         # Initial load (in background to avoid blocking the UI)
         self._refresh_devices()
@@ -138,13 +152,16 @@ class MainWindow(QMainWindow):
 
         def _query():
             devices = get_connected_devices(class_filter)
-            # Sort by name
             devices.sort(key=lambda d: (d.get("name") or "").lower())
-            # Update UI from main thread
-            self._device_table.load_devices(devices)
-            self._device_count_label.setText(f"{len(devices)} devices")
+            # Marshal back to the main thread — widgets must not be touched here.
+            self._devices_loaded.emit(devices)
 
         threading.Thread(target=_query, daemon=True).start()
+
+    @pyqtSlot(list)
+    def _on_devices_loaded(self, devices: list) -> None:
+        self._device_table.load_devices(devices)
+        self._device_count_label.setText(f"{len(devices)} devices")
 
     @pyqtSlot(dict)
     def _on_device_event(self, event_info: dict) -> None:
@@ -167,6 +184,53 @@ class MainWindow(QMainWindow):
             "manufacturer": device_info.get("manufacturer"),
         })
 
+    def notify_scan_result(self, scan_info: dict) -> None:
+        """Thread-safe method to push a security scan update to the UI."""
+        self.scan_event.emit(scan_info)
+
+    @pyqtSlot(dict)
+    def _on_scan_event(self, scan_info: dict) -> None:
+        device_id = scan_info.get("device_id")
+        if device_id:
+            self._latest_scans[device_id] = scan_info
+        status = scan_info.get("status", "")
+        name = scan_info.get("device_name") or "device"
+        summary = scan_info.get("summary") or ""
+        if status == "scanning":
+            self._status_label.setText(f"Scanning {name}: {summary}")
+        elif status == "threats_found":
+            self._status_label.setText(f"Threats found on {name}: {summary}")
+        elif status == "unsigned":
+            self._status_label.setText(f"Unsigned driver: {name}")
+        elif status == "clean":
+            self._status_label.setText(f"Scan clean: {name}")
+        elif status == "error":
+            self._status_label.setText(f"Scan error ({name}): {summary}")
+        # Refresh detail panel if it's showing this device.
+        self._detail_panel.update_scan(scan_info)
+        # If we just finished a scan, refresh history to show the new scan row.
+        if status not in ("scanning",):
+            self._history_view.refresh_if_visible()
+
+    def request_open(self) -> None:
+        """Thread-safe: bring the window to the front. Callable from any thread."""
+        self._tray_open_requested.emit()
+
+    def request_settings(self) -> None:
+        """Thread-safe: open the settings dialog. Callable from any thread."""
+        self._tray_settings_requested.emit()
+
+    @pyqtSlot()
+    def _bring_to_front(self) -> None:
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+    @pyqtSlot()
+    def _open_settings_on_main_thread(self) -> None:
+        self._bring_to_front()
+        self.open_settings()
+
     def open_settings(self) -> None:
-        dialog = SettingsDialog(self)
+        dialog = SettingsDialog(self, live_config=self._config)
         dialog.exec()

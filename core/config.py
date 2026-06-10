@@ -12,6 +12,11 @@ _DEFAULTS = {
     "yara_scan_depth": 2,
     "custom_rules_dir": "rules/custom",
     "defender_scan_enabled": True,
+    "enable_yara_scan": True,
+    "enable_driver_check": True,
+    "scan_max_file_mb": 50,
+    "scan_timeout_sec": 120,
+    "yara_rules_paths": ["rules/default", "rules/custom"],
 }
 
 
