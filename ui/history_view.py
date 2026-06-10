@@ -3,7 +3,7 @@
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
-    QPushButton, QLabel, QFileDialog, QLineEdit,
+    QPushButton, QLabel, QFileDialog, QLineEdit, QFrame,
 )
 
 from core import logger
@@ -17,7 +17,7 @@ class HistoryView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
 
         # Toolbar row
         toolbar = QHBoxLayout()
@@ -47,6 +47,7 @@ class HistoryView(QWidget):
         toolbar.addStretch()
 
         self._count_label = QLabel()
+        self._count_label.setObjectName("muted_label")
         toolbar.addWidget(self._count_label)
 
         self._export_btn = QPushButton("Export CSV")
@@ -59,9 +60,14 @@ class HistoryView(QWidget):
 
         layout.addLayout(toolbar)
 
-        # Event table
+        # Event table inside a rounded card
         self.table = EventHistoryTable()
-        layout.addWidget(self.table)
+        table_card = QFrame()
+        table_card.setObjectName("table_card")
+        card_layout = QVBoxLayout(table_card)
+        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.addWidget(self.table)
+        layout.addWidget(table_card)
 
     def _get_filter(self) -> str | None:
         idx = self._filter_combo.currentIndex()

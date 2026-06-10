@@ -11,12 +11,12 @@ or the raw strings stored in scan-info dicts and log rows.
 from core.security.types import ScanStatus
 
 STATUS_COLORS: dict[str, str] = {
-    ScanStatus.CLEAN: "#4caf50",
-    ScanStatus.SCANNING: "#2196f3",
-    ScanStatus.THREATS_FOUND: "#f44336",
-    ScanStatus.UNSIGNED: "#ff9800",
-    ScanStatus.ERROR: "#9e9e9e",
-    ScanStatus.SKIPPED: "#9e9e9e",
+    ScanStatus.CLEAN: "#4ade80",
+    ScanStatus.SCANNING: "#38bdf8",
+    ScanStatus.THREATS_FOUND: "#f87171",
+    ScanStatus.UNSIGNED: "#fbbf24",
+    ScanStatus.ERROR: "#94a3b8",
+    ScanStatus.SKIPPED: "#94a3b8",
 }
 
 # Detail-panel badge text.

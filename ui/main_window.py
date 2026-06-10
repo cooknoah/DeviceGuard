@@ -7,7 +7,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
-    QStatusBar, QLabel, QComboBox, QPushButton,
+    QStatusBar, QLabel, QComboBox, QPushButton, QFrame,
 )
 from core.monitor import get_connected_devices, get_external_devices
 from core.paths import resource_path
@@ -95,10 +95,12 @@ class MainWindow(QMainWindow):
             self._class_combo.addItem(label)
         self._class_combo.currentIndexChanged.connect(self._refresh_devices)
         filter_bar.addWidget(self._class_combo)
-        filter_bar.addStretch()
 
+        # Muted count, grouped with the category chip.
         self._device_count_label = QLabel()
+        self._device_count_label.setObjectName("muted_label")
         filter_bar.addWidget(self._device_count_label)
+        filter_bar.addStretch()
 
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(lambda: self._refresh_devices(force=True))
@@ -109,7 +111,13 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self._device_table = ConnectedDevicesTable()
-        splitter.addWidget(self._device_table)
+        # Rounded card around the table so rows don't sit flush at the edge.
+        table_card = QFrame()
+        table_card.setObjectName("table_card")
+        card_layout = QVBoxLayout(table_card)
+        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.addWidget(self._device_table)
+        splitter.addWidget(table_card)
 
         self._detail_panel = DeviceDetailPanel()
         splitter.addWidget(self._detail_panel)
@@ -127,7 +135,11 @@ class MainWindow(QMainWindow):
         # ── Status bar ──
         self._status = QStatusBar()
         self.setStatusBar(self._status)
+        status_dot = QLabel("●")
+        status_dot.setObjectName("status_dot")
+        self._status.addWidget(status_dot)
         self._status_label = QLabel("Monitoring active")
+        self._status_label.setObjectName("status_text")
         self._status.addWidget(self._status_label)
 
         # ── Connections ──

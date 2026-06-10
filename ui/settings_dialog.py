@@ -62,7 +62,7 @@ class SettingsDialog(QDialog):
                 f"({yara_scanner.import_error()})</i>"
             )
             warn.setWordWrap(True)
-            warn.setStyleSheet("color: #ff9800;")
+            warn.setStyleSheet("color: #fbbf24;")
             sec_form.addRow(warn)
 
         self._cb_driver = QCheckBox("Flag unsigned drivers on new devices")

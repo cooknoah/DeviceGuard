@@ -1,10 +1,32 @@
 """Device table widgets — live connected devices and event history."""
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
+from PyQt6.QtCore import Qt, QRect, pyqtSignal
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import (
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QStyle, QStyledItemDelegate,
+)
 
 from core.security.types import ScanStatus
 from ui.scan_status import EVENT_LABELS, is_alert_result, status_of_log_string
+
+# Soft event colors matching the theme palette (ui/styles.py).
+_CONNECT_COLOR = QColor("#4ade80")
+_ALERT_COLOR = QColor("#f87171")
+_CLEAN_COLOR = QColor("#38bdf8")
+
+_SELECTION_BAR = QColor("#38bdf8")
+
+
+class _RowHighlightDelegate(QStyledItemDelegate):
+    """Adds a 2px accent bar on the leftmost cell of the selected row; the
+    soft row fill itself comes from the QSS item:selected rule."""
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        if option.state & QStyle.StateFlag.State_Selected and index.column() == 0:
+            bar = QRect(option.rect.left(), option.rect.top(), 2, option.rect.height())
+            painter.fillRect(bar, _SELECTION_BAR)
 
 
 class _SortToggleTable(QTableWidget):
@@ -17,6 +39,8 @@ class _SortToggleTable(QTableWidget):
     def __init__(self, rows: int, cols: int, parent=None):
         super().__init__(rows, cols, parent)
         self.horizontalHeader().sectionDoubleClicked.connect(self._toggle_sort)
+        self.setItemDelegate(_RowHighlightDelegate(self))
+        self.setShowGrid(False)
 
     def _toggle_sort(self, section: int) -> None:
         header = self.horizontalHeader()
@@ -168,14 +192,14 @@ class EventHistoryTable(_SortToggleTable):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 if col_idx == 1:
                     if event_type == "connect":
-                        item.setForeground(Qt.GlobalColor.green)
+                        item.setForeground(_CONNECT_COLOR)
                     elif event_type == "disconnect":
-                        item.setForeground(Qt.GlobalColor.red)
+                        item.setForeground(_ALERT_COLOR)
                     elif event_type == "scan":
                         if is_alert_result(scan_result):
-                            item.setForeground(Qt.GlobalColor.red)
+                            item.setForeground(_ALERT_COLOR)
                         elif status_of_log_string(scan_result) == ScanStatus.CLEAN:
-                            item.setForeground(Qt.GlobalColor.cyan)
+                            item.setForeground(_CLEAN_COLOR)
                 self.setItem(row_idx, col_idx, item)
 
         self.setSortingEnabled(True)
