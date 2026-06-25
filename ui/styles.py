@@ -31,7 +31,9 @@ QWidget {{
     background-color: {PAGE_BG};
     color: {BODY_TEXT};
     font-family: "Segoe UI", sans-serif;
-    font-size: 13px;
+    /* Point-based (≈13px @96dpi) so derived fonts keep a valid point size;
+       a pixel font-size leaves point size -1 and Qt warns during rendering. */
+    font-size: 10pt;
 }}
 
 /* ── Main Window ── */
@@ -228,6 +230,48 @@ QComboBox QAbstractItemView {{
 QComboBox QAbstractItemView::item {{
     min-height: 26px;
     padding: 2px 8px;
+}}
+
+/* ── Category picker (button + menu) ── */
+QPushButton#category_button {{
+    background-color: {CARD_BG};
+    color: {BODY_TEXT};
+    border: 1px solid rgba(255, 255, 255, 12%);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-weight: 500;
+    text-align: left;
+    min-width: 140px;
+}}
+QPushButton#category_button:hover {{
+    background-color: {CARD_BG};
+    border-color: rgba(56, 189, 248, 40%);
+    color: {BODY_TEXT};
+}}
+QPushButton#category_button:pressed {{
+    background-color: {CARD_BG};
+}}
+QPushButton#category_button::menu-indicator {{
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    right: 8px;
+}}
+
+/* ── Menus ── */
+QMenu {{
+    background-color: {CARD_BG};
+    color: {BODY_TEXT};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    padding: 4px;
+}}
+QMenu::item {{
+    padding: 6px 28px 6px 12px;
+    border-radius: 4px;
+}}
+QMenu::item:selected {{
+    background-color: rgba(56, 189, 248, 14%);
+    color: {ACCENT};
 }}
 
 /* ── Line edits (search box, settings) ── */

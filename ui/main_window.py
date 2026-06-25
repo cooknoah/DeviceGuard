@@ -6,8 +6,8 @@ from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize, QTimer
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QListWidget, QListView, QListWidgetItem, QStackedWidget, QSplitter,
-    QStatusBar, QLabel, QComboBox, QPushButton, QFrame,
+    QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
+    QStatusBar, QLabel, QMenu, QPushButton, QFrame,
 )
 from core.monitor import (
     cache_is_fresh, get_connected_devices, get_external_devices, has_cache,
@@ -93,25 +93,26 @@ class MainWindow(QMainWindow):
         filter_bar = QHBoxLayout()
         filter_bar.setSpacing(8)
         filter_bar.addWidget(QLabel("Category:"))
-        self._class_combo = QComboBox()
-        # An explicit QListView popup behaves more reliably under the custom
-        # stylesheet than the default combo view (which can drop the first
-        # click on an item, requiring a second or third).
-        self._class_combo.setView(QListView())
-        for label, _ in _CLASS_FILTERS:
-            self._class_combo.addItem(label)
-        # Debounce category switches: the combo label updates instantly, but
-        # the (potentially heavy) table reload waits until the user stops
-        # switching. Rebuilding on every rapid switch can land mid-click on the
-        # dropdown and swallow the next selection.
+        # Category picker: a button + QMenu rather than a QComboBox. The combo
+        # popup ignores an item click that lands too soon after it opens (a Qt
+        # timing guard), so a quick open-then-select didn't register on the
+        # first click; menu actions trigger immediately on click.
+        self._current_class_idx = 0
+        self._class_button = QPushButton(_CLASS_FILTERS[0][0])
+        self._class_button.setObjectName("category_button")
+        class_menu = QMenu(self._class_button)
+        for i, (label, _) in enumerate(_CLASS_FILTERS):
+            act = class_menu.addAction(label)
+            act.triggered.connect(lambda _checked, idx=i: self._select_category(idx))
+        self._class_button.setMenu(class_menu)
+        filter_bar.addWidget(self._class_button)
+
+        # Debounce the actual table reload so rapid re-selection coalesces and
+        # a heavy rebuild never lands mid-interaction.
         self._class_switch_timer = QTimer(self)
         self._class_switch_timer.setSingleShot(True)
         self._class_switch_timer.setInterval(120)
         self._class_switch_timer.timeout.connect(self._refresh_devices)
-        self._class_combo.currentIndexChanged.connect(
-            lambda *_: self._class_switch_timer.start()
-        )
-        filter_bar.addWidget(self._class_combo)
 
         # Muted count, grouped with the category chip.
         self._device_count_label = QLabel()
@@ -182,6 +183,13 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentIndex(index)
         self._detail_panel.clear()
 
+    def _select_category(self, idx: int) -> None:
+        """Category menu action handler — updates the button label and queues a
+        debounced table refresh for the chosen filter."""
+        self._current_class_idx = idx
+        self._class_button.setText(_CLASS_FILTERS[idx][0])
+        self._class_switch_timer.start()
+
     def _filtered_devices(self, class_filter, max_age: float) -> list:
         """Pull the (optionally cached) device snapshot for the active filter,
         sorted by name. Returns instantly when the cache is warm."""
@@ -201,7 +209,7 @@ class MainWindow(QMainWindow):
         the stale-seq guard, leaving the table on the old category). Fresh WMI
         data is then fetched in the background when forced or the cache is
         stale, and applied if it isn't superseded by a newer switch."""
-        idx = self._class_combo.currentIndex()
+        idx = self._current_class_idx
         _, class_filter = _CLASS_FILTERS[idx] if idx < len(_CLASS_FILTERS) else (None, None)
 
         # Bump the sequence so any in-flight background query is superseded.
