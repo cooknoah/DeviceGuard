@@ -174,7 +174,7 @@ class ConnectedDevicesTable(_SortToggleTable):
 
     row_selected = pyqtSignal(dict)
 
-    _COLUMNS = ["Device Name", "Class", "Manufacturer", "Security", "Device ID"]
+    _COLUMNS = ["Name", "Class", "Manufacturer", "Security", "Device ID"]
     _SECURITY_COL = 3
 
     def __init__(self, parent=None):
@@ -206,11 +206,33 @@ class ConnectedDevicesTable(_SortToggleTable):
         self._devices: list[dict] = []
         # device_id -> latest scan info, for repaint across refreshes.
         self._scans: dict[str, dict] = {}
+        # Signature of the currently displayed rows, to skip redundant rebuilds.
+        self._signature: tuple | None = None
         self.itemSelectionChanged.connect(self._on_selection_changed)
+
+    @staticmethod
+    def _signature_of(devices: list[dict], scans: dict[str, dict]) -> tuple:
+        return tuple(
+            (
+                d.get("device_id"), d.get("name"), d.get("pnp_class"),
+                d.get("manufacturer"), d.get("status"),
+                (scans.get(d.get("device_id") or "") or {}).get("status"),
+            )
+            for d in devices
+        )
 
     def load_devices(self, devices: list[dict], scans: dict[str, dict] | None = None) -> None:
         if scans is not None:
             self._scans = scans
+
+        # Skip the (potentially heavy) rebuild when nothing visible changed —
+        # background re-queries usually return the same data already shown, and
+        # a needless rebuild mid-interaction can swallow a category-combo click.
+        signature = self._signature_of(devices, self._scans)
+        if signature == self._signature and self.rowCount() == len(devices):
+            self._devices = devices
+            return
+        self._signature = signature
 
         # Remember the selection so background refreshes don't wipe it.
         selected_id = None

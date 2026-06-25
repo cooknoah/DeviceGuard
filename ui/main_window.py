@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize, QTimer
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
+    QListWidget, QListView, QListWidgetItem, QStackedWidget, QSplitter,
     QStatusBar, QLabel, QComboBox, QPushButton, QFrame,
 )
 from core.monitor import (
@@ -94,6 +94,10 @@ class MainWindow(QMainWindow):
         filter_bar.setSpacing(8)
         filter_bar.addWidget(QLabel("Category:"))
         self._class_combo = QComboBox()
+        # An explicit QListView popup behaves more reliably under the custom
+        # stylesheet than the default combo view (which can drop the first
+        # click on an item, requiring a second or third).
+        self._class_combo.setView(QListView())
         for label, _ in _CLASS_FILTERS:
             self._class_combo.addItem(label)
         self._class_combo.currentIndexChanged.connect(self._refresh_devices)
