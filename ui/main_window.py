@@ -100,7 +100,17 @@ class MainWindow(QMainWindow):
         self._class_combo.setView(QListView())
         for label, _ in _CLASS_FILTERS:
             self._class_combo.addItem(label)
-        self._class_combo.currentIndexChanged.connect(self._refresh_devices)
+        # Debounce category switches: the combo label updates instantly, but
+        # the (potentially heavy) table reload waits until the user stops
+        # switching. Rebuilding on every rapid switch can land mid-click on the
+        # dropdown and swallow the next selection.
+        self._class_switch_timer = QTimer(self)
+        self._class_switch_timer.setSingleShot(True)
+        self._class_switch_timer.setInterval(120)
+        self._class_switch_timer.timeout.connect(self._refresh_devices)
+        self._class_combo.currentIndexChanged.connect(
+            lambda *_: self._class_switch_timer.start()
+        )
         filter_bar.addWidget(self._class_combo)
 
         # Muted count, grouped with the category chip.
@@ -199,18 +209,10 @@ class MainWindow(QMainWindow):
         seq = self._refresh_seq
 
         # Instant view from the existing snapshot (any age) — never dropped.
-        # The rebuild is deferred to the next event-loop tick so it runs
-        # AFTER the combo's dropdown finishes handling the click; rebuilding
-        # the table inline during the signal can make the popup swallow the
-        # selection (needing two or three clicks to switch category).
         showed_cached = False
         if has_cache():
-            def _apply_cached():
-                if seq != self._refresh_seq:
-                    return
-                self._device_table.set_loading(False)
-                self._on_devices_loaded(self._filtered_devices(class_filter, float("inf")))
-            QTimer.singleShot(0, _apply_cached)
+            self._device_table.set_loading(False)
+            self._on_devices_loaded(self._filtered_devices(class_filter, float("inf")))
             showed_cached = True
 
         # Re-query WMI in the background when explicitly forced or the cached

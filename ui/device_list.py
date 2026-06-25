@@ -25,9 +25,12 @@ _SELECTION_BAR = QColor("#38bdf8")
 _PLACEHOLDER_COLOR = QColor("#64748b")  # MUTED_DIM
 _MUTED_COLOR = QColor("#94a3b8")  # MUTED
 
-# Monospaced, muted styling for the long Device ID column.
+# Monospaced, muted styling for the long Device ID column. An explicit pixel
+# size (matching the 13px UI font) avoids an unset point-size (-1) warning,
+# since this is built at import time before the QApplication exists.
 _MONO_FONT = QFont("Consolas")
 _MONO_FONT.setStyleHint(QFont.StyleHint.Monospace)
+_MONO_FONT.setPixelSize(13)
 
 # Row data lives on column 0 under this role so selection survives sorting.
 _ROW_DATA = Qt.ItemDataRole.UserRole
