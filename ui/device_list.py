@@ -183,16 +183,18 @@ class ConnectedDevicesTable(_SortToggleTable):
         self.set_placeholder("No devices found")
 
         header = self.horizontalHeader()
-        # Name / Manufacturer / Device ID share width proportionally; letting
-        # Manufacturer size-to-contents lets it grow unbounded and collapse the
-        # stretch columns until the header text elides into the sort arrow.
-        # Class and Security are short, fixed to their content.
-        header.setMinimumSectionSize(100)
+        # Name / Manufacturer / Device ID share the remaining width equally
+        # (Stretch). Class and Security get FIXED widths rather than sizing to
+        # content, so the layout stays identical across categories — otherwise
+        # their content-driven widths shift every other column on each switch.
+        header.setMinimumSectionSize(90)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.setColumnWidth(1, 110)   # Class
+        self.setColumnWidth(3, 130)   # Security
 
         self._devices: list[dict] = []
         # device_id -> latest scan info, for repaint across refreshes.

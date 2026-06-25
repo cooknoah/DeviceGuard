@@ -86,6 +86,15 @@ def _query_devices() -> list[dict]:
         pythoncom.CoUninitialize()
 
 
+def has_cache() -> bool:
+    """True if any device snapshot has been cached (regardless of age).
+
+    Lets the UI render a filtered view from an existing snapshot instantly on
+    a category switch, then refresh fresh data in the background if stale."""
+    with _cache_lock:
+        return _cached_devices is not None
+
+
 def cache_is_fresh(max_age_sec: float) -> bool:
     """True if a cached snapshot exists and is younger than max_age_sec.
 

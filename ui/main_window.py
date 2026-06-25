@@ -9,7 +9,9 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
     QStatusBar, QLabel, QComboBox, QPushButton, QFrame,
 )
-from core.monitor import cache_is_fresh, get_connected_devices, get_external_devices
+from core.monitor import (
+    cache_is_fresh, get_connected_devices, get_external_devices, has_cache,
+)
 from core.paths import resource_path
 from ui.device_list import ConnectedDevicesTable
 from ui.device_detail import DeviceDetailPanel
@@ -179,11 +181,12 @@ class MainWindow(QMainWindow):
     def _refresh_devices(self, *_args, force: bool = False) -> None:
         """Reload the connected devices table.
 
-        A category switch only re-filters the cached snapshot, so when the
-        cache is warm it's done synchronously on the main thread — no thread,
-        no result race (a background query could otherwise be dropped by the
-        stale-seq guard, making switches require a second click). Forced
-        refreshes and a cold cache fall back to a background WMI query."""
+        A category switch re-filters whatever snapshot we already have and
+        applies it immediately on the main thread, so the view always updates
+        on the first click (a background query could otherwise be dropped by
+        the stale-seq guard, leaving the table on the old category). Fresh WMI
+        data is then fetched in the background when forced or the cache is
+        stale, and applied if it isn't superseded by a newer switch."""
         idx = self._class_combo.currentIndex()
         _, class_filter = _CLASS_FILTERS[idx] if idx < len(_CLASS_FILTERS) else (None, None)
 
@@ -191,22 +194,27 @@ class MainWindow(QMainWindow):
         self._refresh_seq += 1
         seq = self._refresh_seq
 
-        if not force and cache_is_fresh(30.0):
+        # Instant view from the existing snapshot (any age) — never dropped.
+        showed_cached = False
+        if has_cache():
             self._device_table.set_loading(False)
-            self._on_devices_loaded(self._filtered_devices(class_filter, 30.0))
-            return
+            self._on_devices_loaded(self._filtered_devices(class_filter, float("inf")))
+            showed_cached = True
 
-        max_age = 0.0 if force else 30.0
-        self._device_table.set_loading(True)
+        # Re-query WMI in the background when explicitly forced or the cached
+        # snapshot is stale; a cold cache (startup) always queries.
+        if force or not cache_is_fresh(30.0):
+            if not showed_cached:
+                self._device_table.set_loading(True)
 
-        def _query():
-            devices = self._filtered_devices(class_filter, max_age)
-            if seq != self._refresh_seq:
-                return
-            # Marshal back to the main thread — widgets must not be touched here.
-            self._devices_loaded.emit(devices)
+            def _query():
+                devices = self._filtered_devices(class_filter, 0.0)
+                if seq != self._refresh_seq:
+                    return
+                # Marshal back to the main thread — widgets must not be touched here.
+                self._devices_loaded.emit(devices)
 
-        threading.Thread(target=_query, daemon=True).start()
+            threading.Thread(target=_query, daemon=True).start()
 
     @pyqtSlot(list)
     def _on_devices_loaded(self, devices: list) -> None:
