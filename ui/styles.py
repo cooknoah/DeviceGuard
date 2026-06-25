@@ -223,6 +223,11 @@ QComboBox QAbstractItemView {{
     selection-color: {ACCENT};
     border: 1px solid {BORDER};
     border-radius: 8px;
+    outline: none;
+}}
+QComboBox QAbstractItemView::item {{
+    min-height: 26px;
+    padding: 2px 8px;
 }}
 
 /* ── Line edits (search box, settings) ── */

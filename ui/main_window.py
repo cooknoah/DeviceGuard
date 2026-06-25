@@ -2,7 +2,7 @@
 
 import threading
 
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize, QTimer
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
@@ -195,10 +195,18 @@ class MainWindow(QMainWindow):
         seq = self._refresh_seq
 
         # Instant view from the existing snapshot (any age) — never dropped.
+        # The rebuild is deferred to the next event-loop tick so it runs
+        # AFTER the combo's dropdown finishes handling the click; rebuilding
+        # the table inline during the signal can make the popup swallow the
+        # selection (needing two or three clicks to switch category).
         showed_cached = False
         if has_cache():
-            self._device_table.set_loading(False)
-            self._on_devices_loaded(self._filtered_devices(class_filter, float("inf")))
+            def _apply_cached():
+                if seq != self._refresh_seq:
+                    return
+                self._device_table.set_loading(False)
+                self._on_devices_loaded(self._filtered_devices(class_filter, float("inf")))
+            QTimer.singleShot(0, _apply_cached)
             showed_cached = True
 
         # Re-query WMI in the background when explicitly forced or the cached

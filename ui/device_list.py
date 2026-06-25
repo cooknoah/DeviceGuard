@@ -102,6 +102,13 @@ class _SortToggleTable(QTableWidget):
         self.horizontalHeader().sectionDoubleClicked.connect(self._toggle_sort)
         self.setItemDelegate(_RowHighlightDelegate(self))
         self.setShowGrid(False)
+        # Single-line rows with elision — keeps every row the same height
+        # instead of long names wrapping onto two lines.
+        self.setWordWrap(False)
+        # Always reserve the scrollbar gutter so the stretch columns keep the
+        # same width whether or not a category has enough rows to scroll
+        # (an as-needed scrollbar steals viewport width and shifts columns).
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         # Roomier rows than the default (~30px) for a less cramped feel.
         self.verticalHeader().setDefaultSectionSize(36)
         self._placeholder = "Nothing to show"
