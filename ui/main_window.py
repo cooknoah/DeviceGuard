@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
     QStatusBar, QLabel, QComboBox, QPushButton, QFrame,
 )
-from core.monitor import get_connected_devices, get_external_devices
+from core.monitor import cache_is_fresh, get_connected_devices, get_external_devices
 from core.paths import resource_path
 from ui.device_list import ConnectedDevicesTable
 from ui.device_detail import DeviceDetailPanel
@@ -166,26 +166,41 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentIndex(index)
         self._detail_panel.clear()
 
-    def _refresh_devices(self, *_args, force: bool = False) -> None:
-        """Reload the connected devices table (WMI query runs in a thread).
+    def _filtered_devices(self, class_filter, max_age: float) -> list:
+        """Pull the (optionally cached) device snapshot for the active filter,
+        sorted by name. Returns instantly when the cache is warm."""
+        if class_filter == _EXTERNAL:
+            devices = get_external_devices(max_age_sec=max_age)
+        else:
+            devices = get_connected_devices(class_filter, max_age_sec=max_age)
+        devices.sort(key=lambda d: (d.get("name") or "").lower())
+        return devices
 
-        Category switches reuse a recent cached snapshot (instant); device
-        events and the Refresh button pass force=True to re-query WMI."""
+    def _refresh_devices(self, *_args, force: bool = False) -> None:
+        """Reload the connected devices table.
+
+        A category switch only re-filters the cached snapshot, so when the
+        cache is warm it's done synchronously on the main thread — no thread,
+        no result race (a background query could otherwise be dropped by the
+        stale-seq guard, making switches require a second click). Forced
+        refreshes and a cold cache fall back to a background WMI query."""
         idx = self._class_combo.currentIndex()
         _, class_filter = _CLASS_FILTERS[idx] if idx < len(_CLASS_FILTERS) else (None, None)
-        max_age = 0.0 if force else 30.0
 
-        # Drop results of superseded refreshes so a slow query that was
-        # already in flight can't overwrite a newer one.
+        # Bump the sequence so any in-flight background query is superseded.
         self._refresh_seq += 1
         seq = self._refresh_seq
 
+        if not force and cache_is_fresh(30.0):
+            self._device_table.set_loading(False)
+            self._on_devices_loaded(self._filtered_devices(class_filter, 30.0))
+            return
+
+        max_age = 0.0 if force else 30.0
+        self._device_table.set_loading(True)
+
         def _query():
-            if class_filter == _EXTERNAL:
-                devices = get_external_devices(max_age_sec=max_age)
-            else:
-                devices = get_connected_devices(class_filter, max_age_sec=max_age)
-            devices.sort(key=lambda d: (d.get("name") or "").lower())
+            devices = self._filtered_devices(class_filter, max_age)
             if seq != self._refresh_seq:
                 return
             # Marshal back to the main thread — widgets must not be touched here.
@@ -195,7 +210,8 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(list)
     def _on_devices_loaded(self, devices: list) -> None:
-        self._device_table.load_devices(devices)
+        self._device_table.set_loading(False)
+        self._device_table.load_devices(devices, self._latest_scans)
         self._device_count_label.setText(f"{len(devices)} devices")
 
     @pyqtSlot(dict)
@@ -228,6 +244,7 @@ class MainWindow(QMainWindow):
         device_id = scan_info.get("device_id")
         if device_id:
             self._latest_scans[device_id] = scan_info
+            self._device_table.update_scan_status(device_id, scan_info)
         status = scan_info.get("status", "")
         name = scan_info.get("device_name") or "device"
         summary = scan_info.get("summary") or ""

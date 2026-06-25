@@ -86,6 +86,18 @@ def _query_devices() -> list[dict]:
         pythoncom.CoUninitialize()
 
 
+def cache_is_fresh(max_age_sec: float) -> bool:
+    """True if a cached snapshot exists and is younger than max_age_sec.
+
+    Lets callers (the UI) decide whether a filter change can be served
+    synchronously from cache instead of paying for a background WMI query."""
+    with _cache_lock:
+        return (
+            _cached_devices is not None
+            and time.monotonic() - _cache_time < max_age_sec
+        )
+
+
 def get_connected_devices(
     class_filter: str | None = None,
     max_age_sec: float = 0.0,

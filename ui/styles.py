@@ -97,7 +97,7 @@ QTableWidget::item:selected {{
 QHeaderView::section {{
     background-color: {SURFACE_BG};
     color: {MUTED};
-    padding: 8px 18px 8px 10px;
+    padding: 8px 13px 8px 10px;
     border: none;
     border-bottom: 1px solid {BORDER};
     font-weight: 500;
@@ -105,9 +105,9 @@ QHeaderView::section {{
 QHeaderView::up-arrow, QHeaderView::down-arrow {{
     subcontrol-origin: padding;
     subcontrol-position: center right;
-    width: 12px;
-    height: 12px;
-    right: 4px;
+    width: 10px;
+    height: 10px;
+    right: 2px;
 }}
 QTableCornerButton::section {{
     background-color: {SURFACE_BG};

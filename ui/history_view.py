@@ -91,6 +91,10 @@ class HistoryView(QWidget):
                     )
                 )
             ]
+        if query or idx != 0:
+            self.table.set_placeholder("No matching events")
+        else:
+            self.table.set_placeholder("No events recorded yet")
         self.table.load_events(events)
         self._count_label.setText(f"{len(events)} events")
 
