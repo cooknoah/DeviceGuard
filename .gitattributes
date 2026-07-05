@@ -1,0 +1,4 @@
+# Shell scripts (incl. git hooks) must stay LF, or the shebang breaks under
+# Git Bash / sh with a trailing CR ("bad interpreter").
+.githooks/* text eol=lf
+*.sh text eol=lf

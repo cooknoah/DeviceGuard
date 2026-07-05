@@ -1,0 +1,23 @@
+#!/bin/sh
+# Run the unit test suite before allowing a commit.
+# Bypass with:  git commit --no-verify
+#
+# Enabled via a one-time:  git config core.hooksPath .githooks
+
+# Prefer the project venv's Python; fall back to PATH.
+if [ -x venv/Scripts/python.exe ]; then
+    PY=venv/Scripts/python.exe        # Windows venv
+elif [ -x venv/bin/python ]; then
+    PY=venv/bin/python                # POSIX venv
+else
+    PY=python
+fi
+
+echo "pre-commit: running pytest..."
+"$PY" -m pytest -q
+if [ $? -ne 0 ]; then
+    echo
+    echo "pre-commit: tests failed — commit aborted."
+    echo "            (bypass with 'git commit --no-verify')"
+    exit 1
+fi
