@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
 
 from core.security.types import ScanStatus
 from ui.device_icons import icon_for_class
+from ui.device_labels import friendly_class
 from ui.scan_status import (
     BADGE_LABELS, EVENT_LABELS, STATUS_COLORS,
     is_alert_result, status_of_log_string,
@@ -89,7 +90,7 @@ class _RowHighlightDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
         if option.state & QStyle.StateFlag.State_Selected and index.column() == 0:
-            bar = QRect(option.rect.left(), option.rect.top(), 2, option.rect.height())
+            bar = QRect(option.rect.left(), option.rect.top(), 3, option.rect.height())
             painter.fillRect(bar, _SELECTION_BAR)
 
 
@@ -170,6 +171,10 @@ def _scan_cell(scan_info: dict | None) -> QTableWidgetItem:
     else:
         item.setText("—")
         item.setForeground(_PLACEHOLDER_COLOR)
+        # The dash is honest, not broken: non-storage devices only get a
+        # driver check (clean results are suppressed) and file scans run on
+        # USB storage. Spell that out on hover so it doesn't read as an error.
+        item.setToolTip("No security scan has run for this device")
     return item
 
 
@@ -194,18 +199,22 @@ class ConnectedDevicesTable(_SortToggleTable):
         self.set_placeholder("No devices found")
 
         header = self.horizontalHeader()
-        # Name / Manufacturer / Device ID share the remaining width equally
-        # (Stretch). Class and Security get FIXED widths rather than sizing to
-        # content, so the layout stays identical across categories — otherwise
-        # their content-driven widths shift every other column on each switch.
-        header.setMinimumSectionSize(90)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
-        self.setColumnWidth(1, 110)   # Class
-        self.setColumnWidth(3, 130)   # Security
+        # Name and Device ID — the two most useful columns — are the only
+        # Stretch sections, so they split the leftover width and get real room
+        # instead of being cramped. Class / Manufacturer / Security take FIXED
+        # widths sized to their (short) content: this both frees space for the
+        # stretch columns and keeps the layout identical across categories,
+        # since content-driven widths would otherwise shift every column on a
+        # category switch.
+        header.setMinimumSectionSize(80)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)   # Name
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)     # Class
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)     # Manufacturer
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)     # Security
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)   # Device ID
+        self.setColumnWidth(1, 96)    # Class — friendly labels are short
+        self.setColumnWidth(2, 160)   # Manufacturer
+        self.setColumnWidth(3, 96)    # Security — usually a dash or short badge
 
         self._devices: list[dict] = []
         # device_id -> latest scan info, for repaint across refreshes.
@@ -254,9 +263,10 @@ class ConnectedDevicesTable(_SortToggleTable):
         for row_idx, dev in enumerate(devices):
             self.insertRow(row_idx)
             device_id = dev.get("device_id") or ""
+            raw_class = dev.get("pnp_class") or ""
             cells = [
                 dev.get("name") or "",
-                dev.get("pnp_class") or "",
+                friendly_class(raw_class),  # display; raw class kept in tooltip
                 dev.get("manufacturer") or "",
                 None,  # Security column built separately below
                 device_id,
@@ -267,7 +277,9 @@ class ConnectedDevicesTable(_SortToggleTable):
                 else:
                     item = QTableWidgetItem(text)
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                    item.setToolTip(text)
+                    # Class column shows the friendly label but keeps the raw
+                    # Windows class name available on hover.
+                    item.setToolTip(raw_class if col_idx == 1 else text)
                 if col_idx == 0:
                     item.setIcon(icon_for_class(dev.get("pnp_class")))
                     item.setData(_ROW_DATA, dev)

@@ -43,10 +43,21 @@ class DeviceDetailPanel(QFrame):
         # The addStretch() at the end pins content to the top instead.
         layout = QVBoxLayout(self)
 
-        self._title = QLabel("Select a device")
+        self._title = QLabel("No device selected")
         self._title.setObjectName("detail_title")
         self._title.setWordWrap(True)
         layout.addWidget(self._title)
+        layout.addSpacing(8)
+
+        # Empty-state helper: shown only when nothing is selected, so the panel
+        # explains itself instead of sitting blank next to a lone heading.
+        self._empty_hint = QLabel(
+            "Choose a device from the list to see its details, security "
+            "status, and identifiers."
+        )
+        self._empty_hint.setObjectName("detail_hint")
+        self._empty_hint.setWordWrap(True)
+        layout.addWidget(self._empty_hint)
         layout.addSpacing(12)
 
         self._scan_badge = QLabel("")
@@ -203,6 +214,7 @@ class DeviceDetailPanel(QFrame):
     def show_device(self, device: dict) -> None:
         """Show details for a currently connected device."""
         self._clear_grid()
+        self._empty_hint.setVisible(False)
         self._current_device_id = device.get("device_id")
         self._title.setText(device.get("name") or "Unknown Device")
         self._add_row("Device ID", device.get("device_id") or "—")
@@ -214,6 +226,7 @@ class DeviceDetailPanel(QFrame):
     def show_event(self, event: dict) -> None:
         """Show details for a device event from history."""
         self._clear_grid()
+        self._empty_hint.setVisible(False)
         self._current_device_id = event.get("device_id")
         self._title.setText(event.get("device_name") or "Unknown Device")
 
@@ -250,5 +263,6 @@ class DeviceDetailPanel(QFrame):
     def clear(self) -> None:
         self._clear_grid()
         self._current_device_id = None
-        self._title.setText("Select a device")
+        self._title.setText("No device selected")
+        self._empty_hint.setVisible(True)
         self._render_scan(None)

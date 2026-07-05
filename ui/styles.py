@@ -15,10 +15,10 @@ PAGE_BG = "#0a1628"
 SURFACE_BG = "#0f2035"
 CARD_BG = "#162840"
 BORDER = "rgba(255, 255, 255, 7%)"
-SELECTION_BG = "#133049"    # rgba(56,189,248,0.10) over surface
+SELECTION_BG = "#163c58"    # rgba(56,189,248,0.18) over surface — clearly picks out the active row
 SIDEBAR_ACTIVE = "#14334c"  # rgba(56,189,248,0.12) over surface
 SIDEBAR_HOVER = "#1b2b3f"   # rgba(255,255,255,0.05) over surface
-ALT_ROW = "#15263a"         # rgba(255,255,255,0.025) over surface
+ALT_ROW = "#182a3f"         # rgba(255,255,255,0.05) over surface — a touch stronger striping
 ROW_SEPARATOR = "#22334a"   # rgba(255,255,255,0.05) over card
 ACCENT = "#38bdf8"
 BODY_TEXT = "#cbd5e1"
@@ -119,32 +119,32 @@ QTableCornerButton::section {{
 /* ── Scroll bars ── */
 QScrollBar:vertical {{
     background: transparent;
-    width: 10px;
-    border-radius: 5px;
+    width: 12px;
+    border-radius: 6px;
 }}
 QScrollBar::handle:vertical {{
-    background: rgba(255, 255, 255, 12%);
-    border-radius: 5px;
-    min-height: 30px;
+    background: rgba(255, 255, 255, 22%);
+    border-radius: 6px;
+    min-height: 36px;
 }}
 QScrollBar::handle:vertical:hover {{
-    background: rgba(56, 189, 248, 60%);
+    background: rgba(56, 189, 248, 70%);
 }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0;
 }}
 QScrollBar:horizontal {{
     background: transparent;
-    height: 10px;
-    border-radius: 5px;
+    height: 12px;
+    border-radius: 6px;
 }}
 QScrollBar::handle:horizontal {{
-    background: rgba(255, 255, 255, 12%);
-    border-radius: 5px;
-    min-width: 30px;
+    background: rgba(255, 255, 255, 22%);
+    border-radius: 6px;
+    min-width: 36px;
 }}
 QScrollBar::handle:horizontal:hover {{
-    background: rgba(56, 189, 248, 60%);
+    background: rgba(56, 189, 248, 70%);
 }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
     width: 0;
@@ -164,6 +164,10 @@ QLabel#detail_title {{
     font-size: 16px;
     font-weight: 600;
     color: #e2e8f0;
+}}
+QLabel#detail_hint {{
+    color: {MUTED};
+    font-size: 13px;
 }}
 QLabel#detail_label {{
     color: {MUTED_DIM};
@@ -308,7 +312,7 @@ QLabel#status_dot {{
     margin-left: 6px;
 }}
 QLabel#status_text {{
-    color: {MUTED_DIM};
+    color: {BODY_TEXT};
     font-size: 12px;
 }}
 QSizeGrip {{
@@ -319,9 +323,13 @@ QSizeGrip {{
 
 /* ── Splitter (table ⇄ detail divider) ── */
 QSplitter::handle {{
-    background-color: {BORDER};
-    width: 1px;
-    margin: 0 4px;
+    background-color: rgba(255, 255, 255, 12%);
+    width: 2px;
+    margin: 0 6px;
+    border-radius: 1px;
+}}
+QSplitter::handle:hover {{
+    background-color: rgba(56, 189, 248, 55%);
 }}
 
 /* ── Checkboxes / spinboxes (settings dialog) ── */
