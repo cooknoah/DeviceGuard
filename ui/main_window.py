@@ -140,7 +140,7 @@ class MainWindow(QMainWindow):
         self._detail_panel = DeviceDetailPanel()
         splitter.addWidget(self._detail_panel)
 
-        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(0, 4)
         splitter.setStretchFactor(1, 1)
         devices_outer.addWidget(splitter)
 

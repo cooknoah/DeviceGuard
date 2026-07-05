@@ -36,7 +36,9 @@ class DeviceDetailPanel(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("detail_panel")
-        self.setMinimumWidth(280)
+        # Slimmer minimum so an empty/idle panel doesn't crowd out the table's
+        # Name and Device ID columns; it still holds the detail grid comfortably.
+        self.setMinimumWidth(240)
 
         # No setAlignment(AlignTop) here: it forces children to their size
         # hints, which breaks height-for-width on word-wrapped labels.

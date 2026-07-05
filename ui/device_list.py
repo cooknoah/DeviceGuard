@@ -206,15 +206,17 @@ class ConnectedDevicesTable(_SortToggleTable):
         # stretch columns and keeps the layout identical across categories,
         # since content-driven widths would otherwise shift every column on a
         # category switch.
-        header.setMinimumSectionSize(80)
+        header.setMinimumSectionSize(72)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)   # Name
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)     # Class
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)     # Manufacturer
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)     # Security
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)   # Device ID
-        self.setColumnWidth(1, 96)    # Class — friendly labels are short
-        self.setColumnWidth(2, 160)   # Manufacturer
-        self.setColumnWidth(3, 96)    # Security — usually a dash or short badge
+        # Keep the fixed columns tight so the two Stretch columns (Name and
+        # Device ID — the ones users actually read) get the lion's share.
+        self.setColumnWidth(1, 78)    # Class — friendly labels are short
+        self.setColumnWidth(2, 124)   # Manufacturer — truncates with a tooltip
+        self.setColumnWidth(3, 82)    # Security — usually a dash or short badge
 
         self._devices: list[dict] = []
         # device_id -> latest scan info, for repaint across refreshes.
