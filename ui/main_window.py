@@ -1,9 +1,10 @@
 """Main application window with sidebar navigation, device list, and detail panel."""
 
 import threading
+import time
 
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize, QTimer
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
@@ -21,6 +22,18 @@ from ui.scan_status import STATUS_MESSAGES
 from ui.settings_dialog import SettingsDialog
 
 _ASSETS = resource_path("assets")
+
+
+def _format_age(seconds: float) -> str:
+    """Coarse relative age for the device-list 'Updated …' indicator."""
+    if seconds < 10:
+        return "just now"
+    if seconds < 60:
+        return f"{int(seconds)}s ago"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m ago"
+    return f"{int(seconds // 3600)}h ago"
+
 
 # Sentinel for the grouped external-devices view.
 _EXTERNAL = "__external__"
@@ -179,6 +192,11 @@ class MainWindow(QMainWindow):
         self._status_label.setObjectName("status_text")
         self._status.addWidget(self._status_label)
 
+        # Right-aligned freshness indicator for the device snapshot.
+        self._updated_label = QLabel("")
+        self._updated_label.setObjectName("muted_label")
+        self._status.addPermanentWidget(self._updated_label)
+
         # ── Connections ──
         self._device_table.row_selected.connect(self._detail_panel.show_device)
         self._device_table.view_history_requested.connect(self._view_device_in_history)
@@ -193,8 +211,21 @@ class MainWindow(QMainWindow):
         self._latest_scans: dict[str, dict] = {}
         # Last category-filtered snapshot from WMI; the search box filters this.
         self._loaded_devices: list[dict] = []
+        # Monotonic time of the last *fresh* WMI fetch (for the "Updated …"
+        # indicator); None until the first background query returns.
+        self._last_update_monotonic: float | None = None
         # Monotonic id of the latest refresh request (stale-result guard).
         self._refresh_seq = 0
+
+        # Keep the relative "Updated …" label current without a new fetch.
+        self._freshness_timer = QTimer(self)
+        self._freshness_timer.setInterval(5000)
+        self._freshness_timer.timeout.connect(self._update_freshness_label)
+        self._freshness_timer.start()
+
+        # Ctrl+F jumps to and focuses the device search box.
+        self._find_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        self._find_shortcut.activated.connect(self._focus_search)
 
         # Initial load (in background to avoid blocking the UI)
         self._refresh_devices(force=True)
@@ -259,6 +290,8 @@ class MainWindow(QMainWindow):
                 devices = self._filtered_devices(class_filter, 0.0)
                 if seq != self._refresh_seq:
                     return
+                # Stamp the fetch time (plain assignment is thread-safe here).
+                self._last_update_monotonic = time.monotonic()
                 # Marshal back to the main thread — widgets must not be touched here.
                 self._devices_loaded.emit(devices)
 
@@ -269,6 +302,20 @@ class MainWindow(QMainWindow):
         self._device_table.set_loading(False)
         self._loaded_devices = devices
         self._render_device_table()
+        self._update_freshness_label()
+
+    def _update_freshness_label(self) -> None:
+        if self._last_update_monotonic is None:
+            self._updated_label.setText("")
+            return
+        age = time.monotonic() - self._last_update_monotonic
+        self._updated_label.setText(f"Updated {_format_age(age)}")
+
+    def _focus_search(self) -> None:
+        """Ctrl+F: jump to the Devices tab and focus the search box."""
+        self._sidebar.setCurrentRow(0)   # Devices
+        self._search_box.setFocus()
+        self._search_box.selectAll()
 
     def _render_device_table(self) -> None:
         """Apply the live search text to the loaded snapshot and repaint the

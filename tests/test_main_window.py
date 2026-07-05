@@ -5,11 +5,27 @@ the window builds without hardware. Runs headless via the offscreen Qt
 platform set in conftest.
 """
 
+import time
+
 import pytest
 
-from ui.main_window import MainWindow
+from ui.main_window import MainWindow, _format_age
 
 pytestmark = pytest.mark.usefixtures("qapp")
+
+
+@pytest.mark.parametrize("seconds,expected", [
+    (0, "just now"),
+    (9, "just now"),
+    (10, "10s ago"),
+    (59, "59s ago"),
+    (60, "1m ago"),
+    (599, "9m ago"),
+    (3600, "1h ago"),
+    (7200, "2h ago"),
+])
+def test_format_age(seconds, expected):
+    assert _format_age(seconds) == expected
 
 
 @pytest.fixture
@@ -82,3 +98,24 @@ def test_view_in_history_switches_tab_and_prefills_search(window):
     window._view_device_in_history("Pulsar eS HE 70")
     assert window._stack.currentIndex() == 1  # History page
     assert window._history_view._search_box.text() == "Pulsar eS HE 70"
+
+
+# ── freshness indicator + Ctrl+F (Tier B slice 2) ──
+
+def test_freshness_label_blank_until_first_fetch(window):
+    assert window._last_update_monotonic is None
+    window._update_freshness_label()
+    assert window._updated_label.text() == ""
+
+
+def test_freshness_label_shows_updated_after_fetch(window):
+    window._last_update_monotonic = time.monotonic()
+    window._update_freshness_label()
+    assert window._updated_label.text().startswith("Updated ")
+
+
+def test_focus_search_switches_to_devices_tab(window):
+    window._sidebar.setCurrentRow(1)   # start on History
+    assert window._stack.currentIndex() == 1
+    window._focus_search()
+    assert window._stack.currentIndex() == 0  # back on Devices
