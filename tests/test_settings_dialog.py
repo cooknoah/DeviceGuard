@@ -33,12 +33,15 @@ SPINBOX_KEYS = {
 
 
 @pytest.fixture(autouse=True)
-def _no_disk_writes(monkeypatch):
-    """Capture save_config so tests never touch config.json; returns the list
-    of dicts it was called with."""
-    saved = []
-    monkeypatch.setattr(settings_dialog, "save_config", lambda cfg: saved.append(cfg))
-    return saved
+def _no_side_effects(monkeypatch):
+    """Capture save_config and sync_startup so tests touch neither config.json
+    nor the Windows registry. Returns the recorded calls."""
+    calls = {"saved": [], "startup_synced": []}
+    monkeypatch.setattr(settings_dialog, "save_config",
+                        lambda cfg: calls["saved"].append(cfg))
+    monkeypatch.setattr(settings_dialog, "sync_startup",
+                        lambda cfg: calls["startup_synced"].append(cfg.get("launch_at_startup")))
+    return calls
 
 
 def _full_config():
@@ -89,7 +92,7 @@ def test_missing_keys_fall_back_to_widget_defaults():
 
 # ── save side ──
 
-def test_save_mutates_the_same_live_dict(_no_disk_writes):
+def test_save_mutates_the_same_live_dict(_no_side_effects):
     cfg = _full_config()
     dlg = SettingsDialog(live_config=cfg)
 
@@ -101,7 +104,7 @@ def test_save_mutates_the_same_live_dict(_no_disk_writes):
     assert cfg["notify_on_connect"] is False
     assert cfg["scan_timeout_sec"] == 600
     # save_config received that same object.
-    assert _no_disk_writes and _no_disk_writes[0] is cfg
+    assert _no_side_effects["saved"] and _no_side_effects["saved"][0] is cfg
 
 
 def test_save_writes_every_managed_key():
@@ -121,6 +124,38 @@ def test_save_writes_every_managed_key():
     assert cfg["yara_scan_depth"] == 7
     assert cfg["scan_max_file_mb"] == 1024
     assert cfg["scan_timeout_sec"] == 999
+
+
+def test_save_applies_startup_toggle_live(_no_side_effects):
+    # Enabling the startup checkbox syncs the registry immediately on save.
+    cfg = _full_config()
+    cfg["launch_at_startup"] = False
+    dlg = SettingsDialog(live_config=cfg)
+    dlg._cb_startup.setChecked(True)
+    dlg._save()
+    assert _no_side_effects["startup_synced"] == [True]
+
+
+def test_save_disables_startup_live(_no_side_effects):
+    cfg = _full_config()
+    cfg["launch_at_startup"] = True
+    dlg = SettingsDialog(live_config=cfg)
+    dlg._cb_startup.setChecked(False)
+    dlg._save()
+    assert _no_side_effects["startup_synced"] == [False]
+
+
+def test_save_completes_even_if_startup_sync_fails(monkeypatch, _no_side_effects):
+    # A registry failure must not raise out of _save or block persisting config.
+    def boom(cfg):
+        raise OSError("access denied")
+
+    monkeypatch.setattr(settings_dialog, "sync_startup", boom)
+    cfg = _full_config()
+    dlg = SettingsDialog(live_config=cfg)
+    dlg._cb_startup.setChecked(True)
+    dlg._save()  # must not raise
+    assert _no_side_effects["saved"] and _no_side_effects["saved"][0] is cfg
 
 
 def test_save_preserves_keys_the_dialog_does_not_manage():

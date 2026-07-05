@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.config import load_config, save_config
+from core.startup import sync_startup
 from core.security import yara_scanner
 
 
@@ -89,8 +90,8 @@ class SettingsDialog(QDialog):
         root.addWidget(sec_box)
 
         # ── Buttons ──
-        info = QLabel("<i>Changes take effect on next device event. "
-                      "Restart DeviceGuard to apply startup changes.</i>")
+        info = QLabel("<i>Scan and notification changes take effect on the "
+                      "next device event; the startup toggle applies immediately.</i>")
         info.setWordWrap(True)
         root.addWidget(info)
 
@@ -114,4 +115,11 @@ class SettingsDialog(QDialog):
         self._config["scan_max_file_mb"] = self._sp_max_mb.value()
         self._config["scan_timeout_sec"] = self._sp_timeout.value()
         save_config(self._config)
+        # Apply the startup toggle immediately (registry add/remove) so it
+        # takes effect without a restart. A registry failure must not block
+        # the save or leave the dialog open.
+        try:
+            sync_startup(self._config)
+        except OSError as exc:
+            print(f"[Settings] startup sync failed: {exc}")
         self.accept()
