@@ -159,6 +159,9 @@ class MainWindow(QMainWindow):
         devices_outer.addLayout(filter_bar)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        # A modest gap between the table card and the detail card so they read
+        # as two distinct panes rather than crowding each other.
+        splitter.setHandleWidth(8)
 
         self._device_table = ConnectedDevicesTable()
         # Rounded card around the table so rows don't sit flush at the edge.

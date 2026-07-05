@@ -322,15 +322,14 @@ QSizeGrip {{
 }}
 
 /* ── Splitter (table ⇄ detail divider) ── */
-/* No painted line: the table card and the raised detail card already read as
-   separate surfaces. The handle stays draggable and only tints on hover. */
+/* The handle width (setHandleWidth in main_window) is the whole gap, sized to
+   match the page margins. No extra margin here — it would widen the gap beyond
+   the handle width. Transparent at rest; faint tint on hover. */
 QSplitter::handle {{
     background-color: transparent;
-    width: 6px;
-    margin: 0 2px;
 }}
 QSplitter::handle:hover {{
-    background-color: rgba(56, 189, 248, 30%);
+    background-color: rgba(56, 189, 248, 22%);
 }}
 
 /* ── Checkboxes / spinboxes (settings dialog) ── */
