@@ -1,5 +1,7 @@
 # DeviceGuard
 
+[![tests](https://github.com/cooknoah/DeviceGuard/actions/workflows/tests.yml/badge.svg)](https://github.com/cooknoah/DeviceGuard/actions/workflows/tests.yml)
+
 A dark, modern Windows device monitor with real-time USB/PnP tracking, toast notifications, and security scanning.
 
 ## Features
