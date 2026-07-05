@@ -153,11 +153,15 @@ class MainWindow(QMainWindow):
         # ── Status bar ──
         self._status = QStatusBar()
         self.setStatusBar(self._status)
-        status_dot = QLabel()
-        status_dot.setObjectName("status_dot")
+        self._status_dot = QLabel()
+        self._status_dot.setObjectName("status_dot")
         # 8x8 circle + the 6px left margin from the stylesheet.
-        status_dot.setFixedSize(14, 8)
-        self._status.addWidget(status_dot)
+        self._status_dot.setFixedSize(14, 8)
+        # The dot's steady green means "monitoring is running" (not per-device
+        # connection state); the tooltip spells that out since the adjacent
+        # label changes to the latest connect/disconnect event.
+        self._status_dot.setToolTip("Monitoring active — watching for USB/PnP device changes")
+        self._status.addWidget(self._status_dot)
         self._status_label = QLabel("Monitoring active")
         self._status_label.setObjectName("status_text")
         self._status.addWidget(self._status_label)
