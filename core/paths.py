@@ -22,6 +22,11 @@ else:
     BUNDLE_DIR = Path(__file__).parent.parent
     DATA_DIR = BUNDLE_DIR
 
+# Explicit override (portable installs, tests) wins over the defaults above.
+_DATA_DIR_OVERRIDE = os.environ.get("DEVICEGUARD_DATA_DIR")
+if _DATA_DIR_OVERRIDE:
+    DATA_DIR = Path(_DATA_DIR_OVERRIDE)
+
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
