@@ -46,9 +46,7 @@ QListWidget#sidebar {{
     background-color: {SURFACE_BG};
     border: none;
     border-right: 1px solid {BORDER};
-    border-radius: 12px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
+    border-radius: 0;
     padding: 8px 4px;
     outline: none;
 }}
@@ -242,6 +240,8 @@ QPushButton#category_button {{
     color: {BODY_TEXT};
     border: 1px solid rgba(255, 255, 255, 12%);
     border-radius: 6px;
+    /* text-align:left ignores padding-left (Qt quirk); the label is inset via
+       a transparent leading icon set on the button in main_window instead. */
     padding: 5px 12px;
     font-weight: 500;
     text-align: left;
@@ -322,14 +322,15 @@ QSizeGrip {{
 }}
 
 /* ── Splitter (table ⇄ detail divider) ── */
+/* No painted line: the table card and the raised detail card already read as
+   separate surfaces. The handle stays draggable and only tints on hover. */
 QSplitter::handle {{
-    background-color: rgba(255, 255, 255, 12%);
-    width: 2px;
-    margin: 0 6px;
-    border-radius: 1px;
+    background-color: transparent;
+    width: 6px;
+    margin: 0 2px;
 }}
 QSplitter::handle:hover {{
-    background-color: rgba(56, 189, 248, 55%);
+    background-color: rgba(56, 189, 248, 30%);
 }}
 
 /* ── Checkboxes / spinboxes (settings dialog) ── */

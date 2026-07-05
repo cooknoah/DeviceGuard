@@ -4,7 +4,7 @@ import threading
 import time
 
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QSize, QTimer
-from PyQt6.QtGui import QIcon, QShortcut, QKeySequence
+from PyQt6.QtGui import QIcon, QShortcut, QKeySequence, QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
@@ -114,6 +114,12 @@ class MainWindow(QMainWindow):
         self._current_class_idx = 0
         self._class_button = QPushButton(_CLASS_FILTERS[0][0])
         self._class_button.setObjectName("category_button")
+        # Inset the label from the left border with a transparent spacer icon —
+        # QPushButton ignores padding-left for left-aligned text.
+        _spacer = QPixmap(6, 12)
+        _spacer.fill(Qt.GlobalColor.transparent)
+        self._class_button.setIcon(QIcon(_spacer))
+        self._class_button.setIconSize(QSize(6, 12))
         class_menu = QMenu(self._class_button)
         for i, (label, _) in enumerate(_CLASS_FILTERS):
             act = class_menu.addAction(label)
