@@ -7,7 +7,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QListWidgetItem, QStackedWidget, QSplitter,
-    QStatusBar, QLabel, QMenu, QPushButton, QFrame,
+    QStatusBar, QLabel, QMenu, QPushButton, QFrame, QLineEdit,
 )
 from core.monitor import (
     cache_is_fresh, get_connected_devices, get_external_devices, has_cache,
@@ -15,6 +15,7 @@ from core.monitor import (
 from core.paths import resource_path
 from ui.device_list import ConnectedDevicesTable
 from ui.device_detail import DeviceDetailPanel
+from ui.device_search import filter_devices
 from ui.history_view import HistoryView
 from ui.scan_status import STATUS_MESSAGES
 from ui.settings_dialog import SettingsDialog
@@ -120,6 +121,18 @@ class MainWindow(QMainWindow):
         filter_bar.addWidget(self._device_count_label)
         filter_bar.addStretch()
 
+        # Live search over the loaded snapshot (name / manufacturer / class / id).
+        self._search_box = QLineEdit()
+        self._search_box.setPlaceholderText("Search devices…")
+        self._search_box.setClearButtonEnabled(True)
+        self._search_box.setMaximumWidth(240)
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(200)
+        self._search_timer.timeout.connect(self._render_device_table)
+        self._search_box.textChanged.connect(lambda _t: self._search_timer.start())
+        filter_bar.addWidget(self._search_box)
+
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(lambda: self._refresh_devices(force=True))
         filter_bar.addWidget(refresh_btn)
@@ -168,6 +181,7 @@ class MainWindow(QMainWindow):
 
         # ── Connections ──
         self._device_table.row_selected.connect(self._detail_panel.show_device)
+        self._device_table.view_history_requested.connect(self._view_device_in_history)
         self._history_view.table.row_selected.connect(self._detail_panel.show_event)
         self.device_event.connect(self._on_device_event)
         self.scan_event.connect(self._on_scan_event)
@@ -177,6 +191,8 @@ class MainWindow(QMainWindow):
 
         # Map device_id -> latest scan info (for detail panel + table badge).
         self._latest_scans: dict[str, dict] = {}
+        # Last category-filtered snapshot from WMI; the search box filters this.
+        self._loaded_devices: list[dict] = []
         # Monotonic id of the latest refresh request (stale-result guard).
         self._refresh_seq = 0
 
@@ -186,6 +202,12 @@ class MainWindow(QMainWindow):
     def _switch_page(self, index: int) -> None:
         self._stack.setCurrentIndex(index)
         self._detail_panel.clear()
+
+    def _view_device_in_history(self, name: str) -> None:
+        """Jump to the History tab, pre-filtered to a device (from its
+        right-click 'View in History' action)."""
+        self._sidebar.setCurrentRow(1)   # History (triggers _switch_page)
+        self._history_view.search_for(name)
 
     def _select_category(self, idx: int) -> None:
         """Category menu action handler — updates the button label and queues a
@@ -245,8 +267,23 @@ class MainWindow(QMainWindow):
     @pyqtSlot(list)
     def _on_devices_loaded(self, devices: list) -> None:
         self._device_table.set_loading(False)
-        self._device_table.load_devices(devices, self._latest_scans)
-        self._device_count_label.setText(f"{len(devices)} devices")
+        self._loaded_devices = devices
+        self._render_device_table()
+
+    def _render_device_table(self) -> None:
+        """Apply the live search text to the loaded snapshot and repaint the
+        table + count. Called on load, category switch, and each search edit."""
+        query = self._search_box.text()
+        visible = filter_devices(self._loaded_devices, query)
+        total = len(self._loaded_devices)
+        self._device_table.set_placeholder(
+            "No matching devices" if query.strip() else "No devices found"
+        )
+        self._device_table.load_devices(visible, self._latest_scans)
+        if query.strip() and len(visible) != total:
+            self._device_count_label.setText(f"{len(visible)} of {total} devices")
+        else:
+            self._device_count_label.setText(f"{total} devices")
 
     @pyqtSlot(dict)
     def _on_device_event(self, event_info: dict) -> None:

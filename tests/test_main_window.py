@@ -45,3 +45,40 @@ def test_status_label_tracks_connect_and_disconnect(window):
 def test_status_label_handles_missing_name(window):
     window._on_device_event({"event_type": "connect"})
     assert window._status_label.text() == "Connected: Unknown device"
+
+
+# ── Devices search + view-in-history (Tier B) ──
+
+_DEVICES = [
+    {"name": "Pulsar eS HE 70", "device_id": "HID\\A", "pnp_class": "HIDClass",
+     "manufacturer": "Pulsar"},
+    {"name": "ROG Gaming Display", "device_id": "USB\\B", "pnp_class": "USBDevice",
+     "manufacturer": "WinUsb Device"},
+]
+
+
+def test_search_filters_the_table_and_count(window):
+    window._on_devices_loaded(list(_DEVICES))
+    assert window._device_table.rowCount() == 2
+    assert window._device_count_label.text() == "2 devices"
+
+    window._search_box.setText("pulsar")
+    window._render_device_table()
+    assert window._device_table.rowCount() == 1
+    assert window._device_count_label.text() == "1 of 2 devices"
+
+
+def test_clearing_search_restores_full_list(window):
+    window._on_devices_loaded(list(_DEVICES))
+    window._search_box.setText("pulsar")
+    window._render_device_table()
+    window._search_box.setText("")
+    window._render_device_table()
+    assert window._device_table.rowCount() == 2
+    assert window._device_count_label.text() == "2 devices"
+
+
+def test_view_in_history_switches_tab_and_prefills_search(window):
+    window._view_device_in_history("Pulsar eS HE 70")
+    assert window._stack.currentIndex() == 1  # History page
+    assert window._history_view._search_box.text() == "Pulsar eS HE 70"

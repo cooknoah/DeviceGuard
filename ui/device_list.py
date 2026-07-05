@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter
 from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QStyle, QStyledItemDelegate,
+    QStyle, QStyledItemDelegate, QMenu, QApplication,
 )
 
 from core.security.types import ScanStatus
@@ -182,6 +182,8 @@ class ConnectedDevicesTable(_SortToggleTable):
     """Table showing currently connected PnP devices."""
 
     row_selected = pyqtSignal(dict)
+    # Emitted (with the device name) when the user picks "View in History".
+    view_history_requested = pyqtSignal(str)
 
     _COLUMNS = ["Name", "Class", "Manufacturer", "Security", "Device ID"]
     _SECURITY_COL = 3
@@ -197,6 +199,10 @@ class ConnectedDevicesTable(_SortToggleTable):
         self.setSortingEnabled(True)
         self.setIconSize(QSize(18, 18))
         self.set_placeholder("No devices found")
+
+        # Right-click actions (copy identifiers, jump to history).
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
         header = self.horizontalHeader()
         # Name and Device ID — the two most useful columns — are the only
@@ -316,6 +322,41 @@ class ConnectedDevicesTable(_SortToggleTable):
             dev = self.item(sel[0].row(), 0).data(_ROW_DATA)
             if dev:
                 self.row_selected.emit(dev)
+
+    def _device_at(self, pos) -> dict | None:
+        """The device dict for the row under a viewport position, or None."""
+        item = self.itemAt(pos)
+        if item is None:
+            return None
+        return self.item(item.row(), 0).data(_ROW_DATA)
+
+    def _show_context_menu(self, pos) -> None:
+        dev = self._device_at(pos)
+        if not dev:
+            return
+        menu = QMenu(self)
+        act_copy_id = menu.addAction("Copy Device ID")
+        act_copy_name = menu.addAction("Copy Name")
+        menu.addSeparator()
+        act_history = menu.addAction("View in History")
+        chosen = menu.exec(self.viewport().mapToGlobal(pos))
+        if chosen is act_copy_id:
+            self.copy_device_id(dev)
+        elif chosen is act_copy_name:
+            self.copy_name(dev)
+        elif chosen is act_history:
+            self.request_view_in_history(dev)
+
+    # Action bodies are separate from the menu so they can be tested without
+    # popping (and blocking on) a real context menu.
+    def copy_device_id(self, dev: dict) -> None:
+        QApplication.clipboard().setText(dev.get("device_id") or "")
+
+    def copy_name(self, dev: dict) -> None:
+        QApplication.clipboard().setText(dev.get("name") or "")
+
+    def request_view_in_history(self, dev: dict) -> None:
+        self.view_history_requested.emit(dev.get("name") or "")
 
 
 class EventHistoryTable(_SortToggleTable):

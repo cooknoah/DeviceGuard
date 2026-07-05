@@ -102,6 +102,13 @@ class HistoryView(QWidget):
         if self.isVisible():
             self._refresh()
 
+    def search_for(self, text: str) -> None:
+        """Show all events matching a device (the Devices 'View in History'
+        action jumps here). Resets the type filter so nothing is hidden."""
+        self._filter_combo.setCurrentIndex(0)  # All Events
+        self._search_box.setText(text)
+        self._refresh()
+
     def _export_csv(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
             self, "Export Events to CSV", "device_events.csv",

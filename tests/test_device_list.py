@@ -37,3 +37,27 @@ def test_name_column_keeps_full_name_in_tooltip():
          "pnp_class": "USBDevice", "manufacturer": "Acme"},
     ])
     assert table.item(0, 0).toolTip() == "A Very Long Device Name That Truncates"
+
+
+# ── per-device context-menu actions ──
+
+def test_copy_device_id_puts_id_on_clipboard():
+    from PyQt6.QtWidgets import QApplication
+    table = ConnectedDevicesTable()
+    table.copy_device_id({"name": "Kbd", "device_id": "HID\\VID_3710&PID_2405"})
+    assert QApplication.clipboard().text() == "HID\\VID_3710&PID_2405"
+
+
+def test_copy_name_puts_name_on_clipboard():
+    from PyQt6.QtWidgets import QApplication
+    table = ConnectedDevicesTable()
+    table.copy_name({"name": "Pulsar eS HE 70", "device_id": "HID\\X"})
+    assert QApplication.clipboard().text() == "Pulsar eS HE 70"
+
+
+def test_view_in_history_emits_device_name():
+    table = ConnectedDevicesTable()
+    seen = []
+    table.view_history_requested.connect(seen.append)
+    table.request_view_in_history({"name": "Pulsar eS HE 70", "device_id": "HID\\X"})
+    assert seen == ["Pulsar eS HE 70"]
