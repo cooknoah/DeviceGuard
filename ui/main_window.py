@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
         # The dot's steady green means "monitoring is running" (not per-device
         # connection state); the tooltip spells that out since the adjacent
         # label changes to the latest connect/disconnect event.
-        self._status_dot.setToolTip("Monitoring active — watching for USB/PnP device changes")
+        self._status_dot.setToolTip("Monitoring active")
         self._status.addWidget(self._status_dot)
         self._status_label = QLabel("Monitoring active")
         self._status_label.setObjectName("status_text")
