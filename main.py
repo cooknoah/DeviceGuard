@@ -5,12 +5,11 @@ and PyQt6 main window.
 """
 
 import sys
-import time
-import threading
 
 from core.config import load_config
 from core import logger
-from core.monitor import DeviceMonitor, pick_best_device as _pick_best
+from core.monitor import DeviceMonitor
+from core.event_batch import EventBatch
 from core.notifier import notify_connect, notify_disconnect, notify_threat
 from core.tray import TrayManager
 from core.startup import sync_startup
@@ -18,62 +17,19 @@ from core.security.scanner import Scanner
 from core.security.types import ScanResult, ScanStatus
 from ui.app import create_app
 
-# ── Notification debounce + cooldown ──
-_DEBOUNCE_SECS = 0.8
-_COOLDOWN_SECS = 5.0
 
-_pending_lock = threading.Lock()
-
-
-class _EventBatch:
-    """Debounced batch of raw WMI events for one event type.
-
-    A composite device fires one raw event per interface; batching them
-    yields one history row, one UI update, and one (cooldown-limited) toast."""
-
-    def __init__(self, event_type: str, notify_config_key: str, notify):
-        self._event_type = event_type
-        self._notify_config_key = notify_config_key
-        self._notify = notify
-        self._pending: list[dict] = []
-        self._timer: threading.Timer | None = None
-        self._last_toast: float = 0.0
-
-    def add(self, device_info: dict, config: dict) -> None:
-        with _pending_lock:
-            self._pending.append(device_info)
-            if self._timer is not None:
-                self._timer.cancel()
-            self._timer = threading.Timer(_DEBOUNCE_SECS, self._flush, args=(config,))
-            self._timer.daemon = True
-            self._timer.start()
-
-    def _flush(self, config: dict) -> None:
-        with _pending_lock:
-            batch = list(self._pending)
-            self._pending.clear()
-            self._timer = None
-        if not batch:
-            return
-        best = _pick_best(batch)
-        name = best.get("name") or "Unknown device"
-        logger.log_event(
-            event_type=self._event_type,
-            device_name=name,
-            device_id=best.get("device_id"),
-            device_class=best.get("pnp_class"),
-            manufacturer=best.get("manufacturer"),
-        )
-        if _window:
-            _window.notify_device_event(self._event_type, best)
-        now = time.monotonic()
-        if config.get(self._notify_config_key, True) and now - self._last_toast >= _COOLDOWN_SECS:
-            self._notify(name)
-            self._last_toast = now
+def _emit_device_event(event_type: str, best: dict) -> None:
+    """Marshal a flushed device event to the UI, if the window exists yet."""
+    if _window:
+        _window.notify_device_event(event_type, best)
 
 
-_connect_batch = _EventBatch("connect", "notify_on_connect", notify_connect)
-_disconnect_batch = _EventBatch("disconnect", "notify_on_disconnect", notify_disconnect)
+_connect_batch = EventBatch(
+    "connect", "notify_on_connect", notify_connect, on_flush=_emit_device_event
+)
+_disconnect_batch = EventBatch(
+    "disconnect", "notify_on_disconnect", notify_disconnect, on_flush=_emit_device_event
+)
 
 
 # Reference to the main window, set in main()
