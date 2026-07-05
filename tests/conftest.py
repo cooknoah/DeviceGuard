@@ -18,6 +18,21 @@ import pytest
 _TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="deviceguard-tests-"))
 os.environ["DEVICEGUARD_DATA_DIR"] = str(_TEST_DATA_DIR)
 
+# Run any Qt widgets headlessly (no display, no window popups). Must be set
+# before PyQt6 is imported; harmless for the non-UI tests.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """A process-wide QApplication for widget tests (skips if PyQt6 is absent)."""
+    try:
+        from PyQt6.QtWidgets import QApplication
+    except Exception as exc:  # pragma: no cover - PyQt6 is a hard dep in practice
+        pytest.skip(f"PyQt6 unavailable: {exc}")
+    app = QApplication.instance() or QApplication([])
+    yield app
+
 
 @pytest.fixture
 def data_dir() -> Path:
